@@ -1,24 +1,32 @@
+import copy
 import json
 import os
 import sys
 import warnings
 from pathlib import Path
 import numpy as np
+import matplotlib.pyplot as plt
 import seaborn as sns
-
+import networkx as nx
+import pandas as pd
+import tqdm
+from collections import OrderedDict
 os.environ["KMP_WARNINGS"] = "off"
 warnings.filterwarnings('ignore')
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+from anndata import AnnData
 import scanpy as sc
+import gseapy as gp   # gene set enrichment analysis
 
 import torch
-
+from torchtext.vocab import Vocab
 #from torchtext._torchtext import (
 #    Vocab as VocabPybind,
 #)
 
-sys.path.insert(0, "../../")
+sys.path.insert(0, "../")
+import scgpt as scg
 from scgpt.tasks import GeneEmbedding
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.model import TransformerModel
@@ -46,7 +54,7 @@ n_input_bins = n_bins
 #################################################
 
 # Specify model path; here we load the pre-trained _scGPT blood model
-model_dir = Path("../../save/scGPT_bc")
+model_dir = Path("../save/scGPT_bc")
 model_config_file = model_dir / "args.json"
 model_file = model_dir / "best_model.pt"
 vocab_file = model_dir / "vocab.json"
@@ -90,24 +98,13 @@ model = TransformerModel(
     n_input_bins=n_input_bins,
 )
 
-checkpoint = torch.load(model_file, map_location=device)    # Load OrderedDict
-
-from tutorials._utils import _compare_model_and_checkpoint
-_compare_model_and_checkpoint(model, checkpoint)
-
 try:
-    # @Alex: the model was saved for parallell execution, need a conversion for CPU
-    model.load_state_dict(checkpoint)
+    model.load_state_dict(torch.load(model_file))
     print(f"Loading all model params from {model_file}")
-except Exception as e:
-    print(e)
-
+except:
     # only load params that are in the model and match the size
     model_dict = model.state_dict()
-
-    # dictionary containing the state of the model. This dictionary is often referred to as pretrained_dict
-    # how it can be that model has mode param that dict?
-    pretrained_dict = torch.load(model_file, map_location=device)
+    pretrained_dict = torch.load(model_file)
     pretrained_dict = {
         k: v
         for k, v in pretrained_dict.items()
@@ -129,7 +126,7 @@ In the finetuned setting, we constructed the gene networks in a similar manner f
 on the Immune Human dataset. Following Ceglia et al.
 '''
 # Specify data path; here we load the Immune Human dataset
-data_dir = Path("data/FineTune")
+data_dir = Path("../data/FineTune")
 
 # sc is library for single-cell RNA-seq (scRNA-seq) analysis: Clustering, DEA, Meta Analisys, Vizualization
 # https://www.nature.com/articles/s41592-021-01336-8#data-availability
