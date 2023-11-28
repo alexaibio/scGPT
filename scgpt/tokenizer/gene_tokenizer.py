@@ -28,7 +28,7 @@ class GeneVocab(Vocab):
     def __init__(
         self,
         gene_list_or_vocab: Union[List[str], Vocab],
-        specials: Optional[List[str]] = None,
+        specials: Optional[List[str]] = None,        # special tokens
         special_first: bool = True,
         default_token: Optional[str] = "<pad>",
     ) -> None:
@@ -46,12 +46,14 @@ class GeneVocab(Vocab):
                 if "<pad>" is in the vocabulary.
         """
         if isinstance(gene_list_or_vocab, Vocab):
+            # if initialized from vocabulary
             _vocab = gene_list_or_vocab
             if specials is not None:
                 raise ValueError(
                     "receive non-empty specials when init from a Vocab object."
                 )
         elif isinstance(gene_list_or_vocab, list):
+            # if initialized from list
             _vocab = self._build_vocab_from_iterator(
                 gene_list_or_vocab,
                 specials=specials,
@@ -99,7 +101,7 @@ class GeneVocab(Vocab):
         Args:
             token2idx (Dict[str, int]): Dictionary mapping tokens to indices.
         """
-        # initiate an empty vocabulary first
+        # initiate an empty vocabulary first /  a wrapper around a TorchScript-compatible vocabulary (cpp vocab object).
         _vocab = cls([])
 
         # add the tokens to the vocabulary, GeneVocab requires consecutive indices
@@ -136,7 +138,7 @@ class GeneVocab(Vocab):
             torchtext.vocab.Vocab: A `Vocab` object
         """
 
-        counter = Counter()
+        counter = Counter()   # used to count occurenses of elements in a collection: Counter({4: 4, 3: 3, 2: 2, 1: 1})
         counter.update(iterator)
 
         if specials is not None:

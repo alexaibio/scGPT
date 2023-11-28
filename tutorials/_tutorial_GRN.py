@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import warnings
-
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -56,13 +55,16 @@ model_config_file = model_dir / "args.json"
 model_file = model_dir / "best_model.pt"
 vocab_file = model_dir / "vocab.json"
 
+# load gene vocabulare from saved model / inherited from torchtext.Vocabulary
 vocab = GeneVocab.from_file(vocab_file)
+
 # make sure all special tokens are included into vocabulary
 for s in special_tokens:
     if s not in vocab:
         vocab.append_token(s)
 
 # Retrieve model parameters from config files
+# TODO: check how to get training data from CellXgenes
 with open(model_config_file, "r") as f:
     model_configs = json.load(f)
 
@@ -73,7 +75,7 @@ print(
 
 embsize = model_configs["embsize"]
 nhead = model_configs["nheads"]
-d_hid = model_configs["d_hid"]
+d_hid = model_configs["d_hid"]     # what is that?
 nlayers = model_configs["nlayers"]
 n_layers_cls = model_configs["n_layers_cls"]
 
@@ -99,7 +101,8 @@ try:
 except:
     # only load params that are in the model and match the size
     model_dict = model.state_dict()
-    pretrained_dict = torch.load(model_file)
+    # dictionary containing the state of the model. This dictionary is often referred to as pretrained_dict
+    pretrained_dict = torch.load(model_file, map_location=device)
     pretrained_dict = {
         k: v
         for k, v in pretrained_dict.items()
