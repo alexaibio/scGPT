@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import pandas as pd
 from anndata import AnnData
-import scib
+#import scib
 from matplotlib import pyplot as plt
 from matplotlib import axes
 from IPython import get_ipython
