@@ -10,6 +10,7 @@ import seaborn as sns
 import networkx as nx
 import pandas as pd
 import tqdm
+from collections import OrderedDict
 os.environ["KMP_WARNINGS"] = "off"
 warnings.filterwarnings('ignore')
 
@@ -79,11 +80,10 @@ d_hid = model_configs["d_hid"]     # what is that?
 nlayers = model_configs["nlayers"]
 n_layers_cls = model_configs["n_layers_cls"]
 
-gene2idx = vocab.get_stoi()
-
+gene2idx = vocab.get_stoi()   # get mapping tokens to indices.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 ntokens = len(vocab)  # size of vocabulary
+
 model = TransformerModel(
     ntokens,
     embsize,
@@ -95,13 +95,30 @@ model = TransformerModel(
     n_input_bins=n_input_bins,
 )
 
+checkpoint = torch.load(model_file, map_location=device)    # Load OrderedDict
+
+chk_keys = checkpoint.keys()
+mdl_keys = model.state_dict().keys()
+if set(chk_keys) != set(mdl_keys):
+    print('----- WARNING! model and checkpoint mismatch!')
+    larger_dict = chk_keys if len(chk_keys) >= len(mdl_keys) else mdl_keys
+    for key in larger_dict:
+        key1 = key if key in chk_keys else "N/A"
+        key2 = key if key in mdl_keys else "N/A"
+        print(f"{key2}  \  {key1}")  # model keys first
+
 try:
-    model.load_state_dict(torch.load(model_file))
+    # @Alex: the model was saved for parallell execution, need a conversion for CPU
+    model.load_state_dict(checkpoint)
     print(f"Loading all model params from {model_file}")
-except:
+except Exception as e:
+    print(e)
+
     # only load params that are in the model and match the size
     model_dict = model.state_dict()
+
     # dictionary containing the state of the model. This dictionary is often referred to as pretrained_dict
+    # how it can be that model has mode param that dict?
     pretrained_dict = torch.load(model_file, map_location=device)
     pretrained_dict = {
         k: v
@@ -110,18 +127,23 @@ except:
     }
     for k, v in pretrained_dict.items():
         print(f"Loading params {k} with shape {v.shape}")
-        model_dict.update(pretrained_dict)
-        model.load_state_dict(model_dict)
+
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict)
 
 model.to(device)
 
 
-########### 1.2 Load dataset of interest
+########### 1.2 Load dataset of interest from  CellXgene
 # Specify data path; here we load the Immune Human dataset
 data_dir = Path("../data")
+
+# sc is library for single-cell RNA-seq (scRNA-seq) analysis
+# Clustering, DEA, Meta Analisys, Vizualization
 adata = sc.read(
     str(data_dir / "Immune_ALL_human.h5ad"), cache=True
 )  # 33506 × 12303
+
 ori_batch_col = "batch"
 adata.obs["celltype"] = adata.obs["final_annotation"].astype(str)
 data_is_raw = False
