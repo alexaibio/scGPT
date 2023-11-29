@@ -27,6 +27,7 @@ for disease in CANCER_LIST:
         cancer_condition = f"{cancer_condition} or (disease == '{disease}')"
 VALUE_FILTER['pan-cancer'] = f"(suspension_type != 'na') and ({cancer_condition})"
 
+
 if __name__ == "__main__":
     # print(VALUE_FILTER["others"])
     # print(MAJOR_TISSUE_LIST)
