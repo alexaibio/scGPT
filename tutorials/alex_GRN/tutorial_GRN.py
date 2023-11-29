@@ -10,7 +10,6 @@ import seaborn as sns
 import networkx as nx
 import pandas as pd
 import tqdm
-from collections import OrderedDict
 os.environ["KMP_WARNINGS"] = "off"
 warnings.filterwarnings('ignore')
 
@@ -46,9 +45,6 @@ mask_value = -1
 pad_value = -2
 n_input_bins = n_bins
 
-
-
-
 ################################################
 ### Step 1: Load pre-trained model and dataset
 #################################################
@@ -83,10 +79,11 @@ d_hid = model_configs["d_hid"]     # what is that?
 nlayers = model_configs["nlayers"]
 n_layers_cls = model_configs["n_layers_cls"]
 
-gene2idx = vocab.get_stoi()   # get mapping tokens to indices.
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-ntokens = len(vocab)  # size of vocabulary
+gene2idx = vocab.get_stoi()
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+ntokens = len(vocab)  # size of vocabulary
 model = TransformerModel(
     ntokens,
     embsize,
@@ -113,9 +110,8 @@ except:
     }
     for k, v in pretrained_dict.items():
         print(f"Loading params {k} with shape {v.shape}")
-
-    model_dict.update(pretrained_dict)
-    model.load_state_dict(model_dict)
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
 
 model.to(device)
 
@@ -135,77 +131,9 @@ data_dir = Path("../data/FineTune")
 adata = sc.read(
     str(data_dir / "Immune_ALL_human.h5ad"), cache=True
 )  # 33506 × 12303
-
 ori_batch_col = "batch"
-adata.obs["celltype"] = adata.obs["final_annotation"].astype(str)   # why?
+adata.obs["celltype"] = adata.obs["final_annotation"].astype(str)
 data_is_raw = False
-
-# Preprocess the data following the scGPT data pre-processing pipeline
-preprocessor = Preprocessor(
-    use_key="X",  # the key in adata.layers to use as raw data
-    filter_gene_by_counts=3,  # step 1
-    filter_cell_by_counts=False,  # step 2
-    normalize_total=1e4,  # 3. whether to normalize the raw data and to what sum
-    result_normed_key="X_normed",  # the key in adata.layers to store the normalized data
-    log1p=data_is_raw,  # 4. whether to log1p the normalized data
-    result_log1p_key="X_log1p",
-    subset_hvg=n_hvg,  # 5. whether to subset the raw data to highly variable genes
-    hvg_flavor="seurat_v3" if data_is_raw else "cell_ranger",
-    binning=n_bins,  # 6. whether to bin the raw data and to what number of bins
-    result_binned_key="X_binned",  # the key in adata.layers to store the binned data
-)
-
-preprocessor(adata, batch_key="batch")
-
-
-
-#####################################################
-# Step 2: Retrieve scGPT's gene embeddings
-
-# Overall, the pre-trained foundation model contains 30+K genes. Here for simplicity, we focus on a subset of HVGs specific to the data at hand.
-# Retrieve the data-independent gene embeddings from scGPT
-gene_ids = np.array([id for id in gene2idx.values()])
-gene_embeddings = model.encoder(torch.tensor(gene_ids, dtype=torch.long).to(device))
-gene_embeddings = gene_embeddings.detach().cpu().numpy()
-
-# Filter on the intersection between the Immune Human HVGs found in step 1.2 and scGPT's 30+K foundation model vocab
-gene_embeddings = {gene: gene_embeddings[i] for i, gene in enumerate(gene2idx.keys()) if gene in adata.var.index.tolist()}
-print('Retrieved gene embeddings for {} genes.'.format(len(gene_embeddings)))
-
-# Construct gene embedding network
-embed = GeneEmbedding(gene_embeddings)
-
-####################################################
-# Step 3: Extract gene programs from gene embedding network
-
-# Perform Louvain clustering with desired resolution; here we specify resolution=40
-gdata = embed.get_adata(resolution=40)
-# Retrieve the gene clusters
-metagenes = embed.get_metagenes(gdata)
-
-
-# Obtain the set of gene programs from clusters with #genes >= 5
-mgs = dict()
-for mg, genes in metagenes.items():
-    if len(genes) > 4:
-        mgs[mg] = genes
-
-# Here are the gene programs identified
-mgs
-
-
-# visualize
-sns.set(font_scale=0.35)
-embed.score_metagenes(adata, metagenes)
-embed.plot_metagenes_scores(adata, mgs, "celltype")
-
-
-
-###################
-# Step 5: Visualize network connectivity within desired gene program
-
-
-
 
 
 
