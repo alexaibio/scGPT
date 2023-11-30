@@ -6,8 +6,10 @@ from typing import List
 import os
 import argparse
 
-parser = argparse.ArgumentParser(
-                    description='Build soma index list based on query')
+# get current census versions available
+cellxgene_census.get_census_version_directory()
+
+parser = argparse.ArgumentParser(description='Build soma index list based on query')
 
 
 parser.add_argument("--query-name",

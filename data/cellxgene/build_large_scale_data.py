@@ -99,8 +99,10 @@ input_dir = Path(args.input_dir)
 output_dir = Path(args.output_dir)
 files = [f for f in input_dir.glob("*.h5ad")]
 print(f"Found {len(files)} files in {input_dir}")
+
 if args.include_files is not None:
     files = [f for f in files if f.name in args.include_files]
+
 if args.metainfo is not None:
     metainfo = json.load(open(args.metainfo))
     files = [f for f in files if f.stem in metainfo]

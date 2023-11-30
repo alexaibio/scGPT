@@ -6,16 +6,22 @@
 #SBATCH --qos=nopreemption
 #SBATCH -p cpu
 
+echo  "------- runnung array_download_partition"
 
+SCRIPT_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene"
+INDEX_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene/index"
+QUERY_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene/query_list.txt"
+DATA_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene/expression_data"
 
-INDEX_PATH="path/to/index"
-QUERY_PATH="path/to/query"
-DATA_PATH="path/to/data"
+SLURM_ARRAY_TASK_ID="2"
 
 cd $DATA_PATH
 
-query_name=$(sed -n "${SLURM_ARRAY_TASK_ID}p" $QUERY_PATH)
+query_name=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$QUERY_PATH")
 
-echo "downloading ${query_name}"
+echo " Downloading:"
+echo "1 - query_name = ${query_name}"
+echo "2 - index_path = ${INDEX_PATH}"
+echo "3 - data_path = ${DATA_PATH}"
 
-./download_partition.sh ${query_name} ${INDEX_PATH} ${DATA_PATH}
+"${SCRIPT_PATH}/download_partition.sh" "${query_name}" "${INDEX_PATH}" "${DATA_PATH}"

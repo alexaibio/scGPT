@@ -7,8 +7,7 @@ import os
 import argparse
 
 
-parser = argparse.ArgumentParser(
-                    description='Download a given partition cell of the query in h5ad')
+parser = argparse.ArgumentParser(description='Download a given partition cell of the query in h5ad')
 
 parser.add_argument("--query-name",
     type=str,
@@ -42,15 +41,9 @@ parser.add_argument("--max-partition-size",
 
 args = parser.parse_args()
 
-# print(args)
-
-
-
-
 def define_partition(partition_idx, id_list, partition_size) -> List[str]:
     """
     This function is used to define the partition for each job
-
     partition_idx is the partition index, which is an integer, and 0 <= partition_idx <= len(id_list) // MAX_PARTITION_SIZE
     """
     i = partition_idx * partition_size
@@ -73,12 +66,24 @@ def download_partition(partition_idx, query_name, output_dir, index_dir, partiti
     """
     # define id partition
     id_list = load2list(query_name, index_dir)
-    id_partition =  define_partition(partition_idx, id_list, partition_size)
+    id_partition = define_partition(partition_idx, id_list, partition_size)
+
+    # @Alex
+    # Check if the file already exists
+    query_dir = os.path.join(output_dir, query_name)
+    query_adata_path = os.path.join(query_dir, f"partition_{partition_idx}.h5ad")
+
+    if os.path.exists(query_adata_path):
+        print(f"File for partition {partition_idx} of {query_name} already exists. Skipping download.")
+        return query_adata_path
+    # end @Alex
+
     with cellxgene_census.open_soma(census_version=VERSION) as census:
         adata = cellxgene_census.get_anndata(census,    
                                             organism="Homo sapiens",
                                             obs_coords=id_partition,
                                             )
+
     # prepare the query dir if not exist
     query_dir = os.path.join(output_dir, query_name)
     if not os.path.exists(query_dir):

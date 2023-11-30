@@ -1,7 +1,12 @@
 #!/bin/sh
+
+echo "------ running download_partition.sh"
+
 QUERY=$1
 INDEX_DIR=$2
 OUTPUT_DIR=$3
+
+SCRIPT_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene"
 
 MAX_PARTITION_SIZE=200000
 
@@ -13,7 +18,7 @@ total_partition=$(($total_num / $MAX_PARTITION_SIZE))
 for i in $(seq 0 $total_partition)
 do
     echo "downloading partition ${i}/${total_partition} for ${QUERY}"
-    python3 ./download_partition.py \
+    python3 "${SCRIPT_PATH}/download_partition.py" \
         --query-name ${QUERY} \
         --index-dir ${INDEX_DIR} \
         --output-dir ${OUTPUT_DIR} \

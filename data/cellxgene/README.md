@@ -34,6 +34,9 @@ INDEX_PATH="path/to/index"
 QUERY_PATH="path/to/query"
 
 ./build_soma_idx.sh $INDEX_PATH $QUERY_PATH
+
+export INDEX_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene/index"
+export QUERY_PATH="/Users/ayudzin/PycharmProjects/scGPT/data/cellxgene/query_list.txt"
 ```
 
 ## Download the Dataset in Chunks
