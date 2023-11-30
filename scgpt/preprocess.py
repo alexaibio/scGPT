@@ -91,6 +91,7 @@ class Preprocessor:
             is used in the highly variable gene selection step.
         """
         key_to_process = self.use_key
+
         # preliminary checks, will use later
         if key_to_process == "X":
             key_to_process = None  # the following scanpy apis use arg None to use X

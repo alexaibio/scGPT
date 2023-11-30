@@ -20,6 +20,7 @@ import scanpy as sc
 import gseapy as gp   # gene set enrichment analysis
 
 import torch
+from torchtext.vocab import (Vocab as VocabPybind)
 from torchtext.vocab import Vocab
 #from torchtext._torchtext import (
 #    Vocab as VocabPybind,
@@ -45,6 +46,9 @@ n_bins = 51
 mask_value = -1
 pad_value = -2
 n_input_bins = n_bins
+
+
+
 
 ################################################
 ### Step 1: Load pre-trained model and dataset
@@ -97,15 +101,8 @@ model = TransformerModel(
 
 checkpoint = torch.load(model_file, map_location=device)    # Load OrderedDict
 
-chk_keys = checkpoint.keys()
-mdl_keys = model.state_dict().keys()
-if set(chk_keys) != set(mdl_keys):
-    print('----- WARNING! model and checkpoint mismatch!')
-    larger_dict = chk_keys if len(chk_keys) >= len(mdl_keys) else mdl_keys
-    for key in larger_dict:
-        key1 = key if key in chk_keys else "N/A"
-        key2 = key if key in mdl_keys else "N/A"
-        print(f"{key2}  \  {key1}")  # model keys first
+from tutorials._utils import _compare_model_and_checkpoint
+_compare_model_and_checkpoint(model, checkpoint)
 
 try:
     # @Alex: the model was saved for parallell execution, need a conversion for CPU
@@ -135,18 +132,91 @@ model.to(device)
 
 
 ########### 1.2 Load dataset of interest from  CellXgene
+'''
+In the zero-shot setting, we extracted the gene similarity network from scGPT models’s gene embeddings based on cosine similarities. 
+In the finetuned setting, we constructed the gene networks in a similar manner from the scGPT model finetuned
+on the Immune Human dataset. Following Ceglia et al.
+'''
 # Specify data path; here we load the Immune Human dataset
-data_dir = Path("../data")
+data_dir = Path("../data/FineTune")
 
-# sc is library for single-cell RNA-seq (scRNA-seq) analysis
-# Clustering, DEA, Meta Analisys, Vizualization
+# sc is library for single-cell RNA-seq (scRNA-seq) analysis: Clustering, DEA, Meta Analisys, Vizualization
+# https://www.nature.com/articles/s41592-021-01336-8#data-availability
+# https://figshare.com/articles/dataset/Benchmarking_atlas-level_data_integration_in_single-cell_genomics_-_integration_task_datasets_Immune_and_pancreas_/12420968
 adata = sc.read(
     str(data_dir / "Immune_ALL_human.h5ad"), cache=True
 )  # 33506 × 12303
 
 ori_batch_col = "batch"
-adata.obs["celltype"] = adata.obs["final_annotation"].astype(str)
+adata.obs["celltype"] = adata.obs["final_annotation"].astype(str)   # why?
 data_is_raw = False
+
+# Preprocess the data following the scGPT data pre-processing pipeline
+preprocessor = Preprocessor(
+    use_key="X",  # the key in adata.layers to use as raw data
+    filter_gene_by_counts=3,  # step 1
+    filter_cell_by_counts=False,  # step 2
+    normalize_total=1e4,  # 3. whether to normalize the raw data and to what sum
+    result_normed_key="X_normed",  # the key in adata.layers to store the normalized data
+    log1p=data_is_raw,  # 4. whether to log1p the normalized data
+    result_log1p_key="X_log1p",
+    subset_hvg=n_hvg,  # 5. whether to subset the raw data to highly variable genes
+    hvg_flavor="seurat_v3" if data_is_raw else "cell_ranger",
+    binning=n_bins,  # 6. whether to bin the raw data and to what number of bins
+    result_binned_key="X_binned",  # the key in adata.layers to store the binned data
+)
+
+preprocessor(adata, batch_key="batch")
+
+
+
+#####################################################
+# Step 2: Retrieve scGPT's gene embeddings
+
+# Overall, the pre-trained foundation model contains 30+K genes. Here for simplicity, we focus on a subset of HVGs specific to the data at hand.
+# Retrieve the data-independent gene embeddings from scGPT
+gene_ids = np.array([id for id in gene2idx.values()])
+gene_embeddings = model.encoder(torch.tensor(gene_ids, dtype=torch.long).to(device))
+gene_embeddings = gene_embeddings.detach().cpu().numpy()
+
+# Filter on the intersection between the Immune Human HVGs found in step 1.2 and scGPT's 30+K foundation model vocab
+gene_embeddings = {gene: gene_embeddings[i] for i, gene in enumerate(gene2idx.keys()) if gene in adata.var.index.tolist()}
+print('Retrieved gene embeddings for {} genes.'.format(len(gene_embeddings)))
+
+# Construct gene embedding network
+embed = GeneEmbedding(gene_embeddings)
+
+####################################################
+# Step 3: Extract gene programs from gene embedding network
+
+# Perform Louvain clustering with desired resolution; here we specify resolution=40
+gdata = embed.get_adata(resolution=40)
+# Retrieve the gene clusters
+metagenes = embed.get_metagenes(gdata)
+
+
+# Obtain the set of gene programs from clusters with #genes >= 5
+mgs = dict()
+for mg, genes in metagenes.items():
+    if len(genes) > 4:
+        mgs[mg] = genes
+
+# Here are the gene programs identified
+mgs
+
+
+# visualize
+sns.set(font_scale=0.35)
+embed.score_metagenes(adata, metagenes)
+embed.plot_metagenes_scores(adata, mgs, "celltype")
+
+
+
+###################
+# Step 5: Visualize network connectivity within desired gene program
+
+
+
 
 
 
