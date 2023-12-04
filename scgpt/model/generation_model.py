@@ -63,7 +63,8 @@ class TransformerGenerator(nn.Module):
         if use_fast_transformer:
             try:
                 from flash_attn.flash_attention import FlashMHA
-            except ImportError:
+            except ImportError as e:
+                print(f"Error importing FlashMHA: {e}")
                 import warnings
                 # warnings.warn(
                 print(
