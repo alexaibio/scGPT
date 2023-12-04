@@ -65,10 +65,10 @@ class TransformerGenerator(nn.Module):
                 from flash_attn.flash_attention import FlashMHA
             except ImportError:
                 import warnings
-
-                warnings.warn(
-                    "flash-attn is not installed, using pytorch transformer instead. "
-                    "Set use_fast_transformer=False to avoid this warning. "
+                # warnings.warn(
+                print(
+                    "flash-attn is not installed, using pytorch transformer instead. ",
+                    "Set use_fast_transformer=False to avoid this warning. ",
                     "Installing flash-attn is highly recommended."
                 )
                 use_fast_transformer = False
@@ -78,7 +78,7 @@ class TransformerGenerator(nn.Module):
         self.value_encoder = ContinuousValueEncoder(d_model, dropout)
         self.pert_encoder = nn.Embedding(3, d_model, padding_idx=pert_pad_id)
 
-        print("Using simple batchnorm instead of domain specific batchnorm")
+        print("-->Using simple batchnorm instead of domain specific batchnorm")
         self.bn = nn.BatchNorm1d(d_model, eps=6.1e-5)
 
         if use_fast_transformer:
