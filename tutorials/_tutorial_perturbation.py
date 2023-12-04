@@ -42,6 +42,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 ############################################################
+# add if to use flash-attention
+# what if fast transformer?
+
 ###### 1 -  Training Settings
 if True:
     # settings for data prcocessing
