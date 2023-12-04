@@ -186,6 +186,7 @@ model = TransformerGenerator(
     use_fast_transformer=use_fast_transformer,
 )
 
+# can I use load_pretrained() here to avois flash-attention?
 pretrained_dict = torch.load(model_file, map_location=device)
 
 from tutorials._utils import _compare_model_and_checkpoint
