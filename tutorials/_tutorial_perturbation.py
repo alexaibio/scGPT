@@ -4,7 +4,6 @@ import sys
 import time
 import copy
 from pathlib import Path
-from typing import Iterable, List, Tuple, Dict, Union, Optional
 import warnings
 import torch
 import numpy as np
@@ -12,16 +11,10 @@ import matplotlib
 from torch import nn
 from torch.nn import functional as F
 from torchtext.vocab import Vocab
-#from torchtext._torchtext import (
-#    Vocab as VocabPybind,
-#)
 from torchtext.vocab import (Vocab as VocabPybind)
-from torch_geometric.loader import DataLoader
 
 # GEARS: Predicting transcriptional outcomes of novel multi-gene perturbations
-from gears import PertData, GEARS
-from gears.inference import compute_metrics, deeper_analysis, non_dropout_analysis
-from gears.utils import create_cell_graph_dataset_for_prediction
+from gears import PertData
 
 sys.path.insert(0, "../")
 import scgpt as scg
@@ -34,11 +27,19 @@ from scgpt.loss import (
 from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
+from tutorials._train import train, evaluate
+from tutorials._predict import plot_perturbation
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+save_dir = Path(f"./save/dev_perturb-{time.strftime('%b%d-%H-%M')}/")
+save_dir.mkdir(parents=True, exist_ok=True)
+print(f"saving to {save_dir}")
+logger = scg.logger
+#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 
 ############################################################
@@ -53,19 +54,22 @@ if True:
     pad_value = 0  # for padding values
     pert_pad_id = 2
 
-    n_hvg = 0  # number of highly variable genes
-    include_zero_gene = "all"  # include zero expr genes in training input, "all", "batch-wise", "row-wise", or False
-    max_seq_len = 1536
+    TRN_SET = {
+        'n_hvg': 0,                 # number of highly variable genes
+        'include_zero_gene': "all",  # include zero expr genes in training input, "all", "batch-wise", "row-wise",False
+        'max_seq_len': 1536,
+        # settings for training
+        'MLM': True,        # whether to use masked language modeling, currently it is always on.
+        'CLS': False,       # celltype classification objective
+        'CCE': False,       # Contrastive cell embedding objective
+        'MVC': False,       # Masked value prediction for cell embedding
+        'ECS': False,  # Elastic cell similarity objective
+        'cell_emb_style': "cls",
+        'mvc_decoder_style': "inner product, detach",
+        'amp': True
+    }
 
-    # settings for training
-    MLM = True  # whether to use masked language modeling, currently it is always on.
-    CLS = False  # celltype classification objective
-    CCE = False  # Contrastive cell embedding objective
-    MVC = False  # Masked value prediction for cell embedding
-    ECS = False  # Elastic cell similarity objective
-    cell_emb_style = "cls"
-    mvc_decoder_style = "inner product, detach"
-    amp = True
+
 
     load_model = "../save/scGPT_human"
     load_param_prefixs = [
@@ -95,6 +99,7 @@ if True:
     log_interval = 100
 
 #############  choose a validation dataset: adamson or norman
+logger.info(' Load finetuning dataset')
 data_name = "adamson"
 split = "simulation"
 if data_name == "norman":
@@ -102,12 +107,6 @@ if data_name == "norman":
 elif data_name == "adamson":
     perts_to_plot = ["KCTD16+ctrl"]
 
-save_dir = Path(f"./save/dev_perturb_{data_name}-{time.strftime('%b%d-%H-%M')}/")
-save_dir.mkdir(parents=True, exist_ok=True)
-print(f"saving to {save_dir}")
-
-logger = scg.logger
-scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 # log running date and current git commit
 logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -160,9 +159,15 @@ else:
 
 vocab.set_default_index(vocab["<pad>"])
 gene_ids = np.array(
-    [vocab[gene] if gene in vocab else vocab["<pad>"] for gene in genes], dtype=int
+    [vocab[gene] if gene in vocab else vocab["<pad>"] for gene in genes],
+    dtype=int
 )
 n_genes = len(genes)
+
+inGENE = {
+    'gene_ids': gene_ids,
+    'n_genes': n_genes
+}
 
 
 
@@ -183,9 +188,9 @@ model = TransformerGenerator(
     pad_token=pad_token,
     pad_value=pad_value,
     pert_pad_id=pert_pad_id,
-    do_mvc=MVC,
-    cell_emb_style=cell_emb_style,
-    mvc_decoder_style=mvc_decoder_style,
+    do_mvc=TRN_SET['MVC'],
+    cell_emb_style=TRN_SET['cell_emb_style'],
+    mvc_decoder_style=TRN_SET['mvc_decoder_style'],
     use_fast_transformer=use_fast_transformer,
 )
 
@@ -233,11 +238,17 @@ model.to(device)
 
 
 
-# train and validate def here
-from tutorials._utils import train, evaluate
+################### FINETUNING: train and validate def here
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, schedule_interval, gamma=0.9)
+OPTM = {
+    'criterion': masked_mse_loss,
+    'criterion_cls': nn.CrossEntropyLoss(),
+    'optimizer': optimizer,
+    'scheduler': scheduler,
+    'scaler': torch.cuda.amp.GradScaler(enabled=TRN_SET['amp'])
+}
 
 best_val_loss = float("inf")
 best_model = None
@@ -245,17 +256,29 @@ patience = 0
 
 for epoch in range(1, epochs + 1):
     epoch_start_time = time.time()
+
+    # get adamson dataset for finetuning
     train_loader = pert_data.dataloader["train_loader"]
     valid_loader = pert_data.dataloader["val_loader"]
 
     train(
         model,
         train_loader,
+        TRN_SET,
+        inGENE,
+        OPTM,
+        log_interval,
+        epoch
     )
+
     val_loss, val_mre = evaluate(
         model,
         valid_loader,
+        TRN_SET,
+        inGENE,
+        OPTM
     )
+
     elapsed = time.time() - epoch_start_time
     logger.info("-" * 89)
     logger.info(
@@ -281,3 +304,12 @@ for epoch in range(1, epochs + 1):
     )
 
     scheduler.step()
+
+
+
+################### Predict and Plot
+
+# predict(best_model, [["FEV"], ["FEV", "SAMD11"]])
+for p in perts_to_plot:
+    plot_perturbation(best_model, pert_data, p, pool_size=300, save_file=f"{save_dir}/{p}.png")
+

@@ -1,30 +1,17 @@
 import numpy as np
 import torch
 from torch import nn
-from typing import List, Dict, Any
+from typing import Iterable, List, Tuple, Dict, Union, Optional
 from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
-import scgpt as scg
 from scgpt.model import TransformerGenerator
-from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from _conf_perturb import (
-    TRN_PAR, INPT_PAR
-)
-from gears import PertData
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-logger = scg.logger
-sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5)
 
 
 def predict(
-    model: TransformerGenerator,
-    gene_ids,
-    ctrl_adata,
-    pert_list: List[Any],   # genes to perturb
-    pool_size: int,
-    gene_list: list         # all gene names
+        model: TransformerGenerator,
+        pert_data,
+        pert_list: List[str],
+        pool_size: Optional[int] = None
 ) -> Dict:
     """
     Predict the gene expression values for the given perturbations.
@@ -36,41 +23,31 @@ def predict(
             of cells in the control and predict their perturbation results. Report
             the stats of these predictions. If `None`, use all control cells.
     """
-
-    # check if genes to be perturbed are in model's gene list
-    if any(i not in gene_list for pert in pert_list for i in pert):
-        raise ValueError("One or more genes are not in the perturbation graph. Please select from GEARS.gene_list!")
+    adata = pert_data.adata
+    ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
+    if pool_size is None:
+        pool_size = len(ctrl_adata.obs)
+    gene_list = pert_data.gene_names.values.tolist()
+    for pert in pert_list:
+        for i in pert:
+            if i not in gene_list:
+                raise ValueError(
+                    "The gene is not in the perturbation graph. Please select from GEARS.gene_list!"
+                )
 
     model.eval()
     device = next(model.parameters()).device
-
-    # run prediction
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:
-            logger.info(f'... running prediction for genes {pert}')
-            # Create a perturbation specific cell graph dataset for inference (GEARS package)
-            # cell_graph: list of pool_size graphs (Data(x=[5060,2], pert=[1])
-            #   x - Node feature matrix with shape [num_nodes, num_node_features] from geometric
-            #       features  - expression and perturbation mask 0/1
-            #   pert - list of perturbed genes
             cell_graphs = create_cell_graph_dataset_for_prediction(
-                pert_gene=pert,         # gene to perturb
-                ctrl_adata=ctrl_adata,  # control anndata - why?
-                gene_names=gene_list,
-                device=device,
-                num_samples=pool_size   # number of samples to use for inference
+                pert, ctrl_adata, gene_list, device, num_samples=pool_size
             )
-
-            loader = DataLoader(dataset=cell_graphs, batch_size=TRN_PAR['eval_batch_size'], shuffle=False)
-
+            loader = DataLoader(cell_graphs, batch_size=eval_batch_size, shuffle=False)
             preds = []
             for batch_data in loader:
                 pred_gene_values = model.pred_perturb(
-                    batch_data,
-                    INPT_PAR['include_zero_gene'],
-                    gene_ids=gene_ids,
-                    amp=INPT_PAR['amp']
+                    batch_data, include_zero_gene, gene_ids=gene_ids, amp=amp
                 )
                 preds.append(pred_gene_values)
             preds = torch.cat(preds, dim=0)
@@ -79,25 +56,27 @@ def predict(
     return results_pred
 
 
+
+
 def plot_perturbation(
         model: nn.Module,
-        vocab_foundational: GeneVocab,
-        query: str, # perturbed gene
-        pert_data: PertData,
-        gene_ids,
-        save_plot_file: str = None,
+        pert_data,
+        query: str,
+        save_file: str = None,
         pool_size: int = None,
-) -> None:
+
+):
+    import seaborn as sns
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5)
 
     adata = pert_data.adata
-    ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
     gene2idx = pert_data.node_map
     cond2name = dict(adata.obs[["condition", "condition_name"]].values)
     gene_raw2id = dict(zip(adata.var.index.values, adata.var.gene_name.values))
 
-    # DE_20 top 20 most differentially expressed genes
-    # https://static-content.springer.com/esm/art%3A10.1038%2Fs41587-023-01905-6/MediaObjects/41587_2023_1905_MOESM1_ESM.pdf
-    # 'drop-out' phenomenon: a gene is observed at moderate or even high expression level in one cell but is not detected in another cell
     de_idx = [
         gene2idx[gene_raw2id[i]]
         for i in adata.uns["top_non_dropout_de_20"][cond2name[query]]
@@ -107,38 +86,18 @@ def plot_perturbation(
         gene_raw2id[i] for i in adata.uns["top_non_dropout_de_20"][cond2name[query]]
     ]
 
-    # true expression of top 20 genes after QUERY perturbation
     truth = adata[adata.obs.condition == query].X.toarray()[:, de_idx]
-
-    # do PREDICTION
     if query.split("+")[1] == "ctrl":
-        logger.info('... Control is present')
-        pred = predict(
-            model=model,
-            gene_ids=gene_ids,
-            ctrl_adata=ctrl_adata,
-            pert_list=[[query.split("+")[0]]],  # TODO: what it returns?
-            pool_size=pool_size,
-            gene_list=pert_data.gene_names.values.tolist()
-        )
+        pred = predict(model, pert_data, [[query.split("+")[0]]], pool_size=pool_size)
         pred = pred[query.split("+")[0]][de_idx]
     else:
-        logger.info('... No control')
-        pred = predict(
-            model=model,
-            gene_ids=gene_ids,
-            ctrl_adata=ctrl_adata,
-            pert_list=[query.split("+")],
-            pool_size=pool_size,
-            gene_list=pert_data.gene_names.values.tolist()
-        )
+        pred = predict(model, pert_data, [query.split("+")], pool_size=pool_size)
         pred = pred["_".join(query.split("+"))][de_idx]
-
     ctrl_means = adata[adata.obs["condition"] == "ctrl"].to_df().mean()[de_idx].values
+
     pred = pred - ctrl_means
     truth = truth - ctrl_means
 
-    ### Plotting
     plt.figure(figsize=[16.5, 4.5])
     plt.title(query)
     plt.boxplot(truth, showfliers=False, medianprops=dict(linewidth=0))
@@ -156,6 +115,6 @@ def plot_perturbation(
     plt.tick_params(axis="y", which="major", pad=5)
     sns.despine()
 
-    if save_plot_file:
-        plt.savefig(save_plot_file, bbox_inches="tight", transparent=False)
+    if save_file:
+        plt.savefig(save_file, bbox_inches="tight", transparent=False)
     # plt.show()
