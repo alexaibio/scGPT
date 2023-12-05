@@ -1,6 +1,7 @@
 
 
 def _compare_model_and_checkpoint(model, checkpoint):
+
     chk_keys = checkpoint.keys()
     mdl_keys = model.state_dict().keys()
 
