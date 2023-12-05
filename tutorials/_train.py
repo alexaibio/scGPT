@@ -11,23 +11,17 @@ from scgpt.loss import (
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 import scgpt as scg
 
-
 logger = scg.logger
-
 sys.path.insert(0, "../")
 set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-
-
 
 
 def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: dict, inGENE, OPTM, log_interval, epoch) -> None:
     """
     Train the model for one epoch.
     """
-    scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optomizer'], OPTM['criterion'], OPTM['scheduler']
+    scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optimizer'], OPTM['criterion'], OPTM['scheduler']
 
     model.train()
     total_loss, total_mse = 0.0, 0.0
@@ -38,6 +32,7 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
         batch_size = len(batch_data.y)
         batch_data.to(device)
         x: torch.Tensor = batch_data.x  # (batch_size * n_genes, 2)
+
         ori_gene_values = x[:, 0].view(batch_size, inGENE['n_genes'])
         pert_flags = x[:, 1].long().view(batch_size, inGENE['n_genes'])
         target_gene_values = batch_data.y  # (batch_size, n_genes)
