@@ -236,7 +236,7 @@ elif load_model is not None:  # either param_prefixed or model is None
 
 model.to(device)
 
-
+print(model)
 
 
 ################### FINETUNING: train and validate def here
