@@ -15,8 +15,8 @@ def _compare_model_and_checkpoint(model, checkpoint):
         print('----- WARNING! model and checkpoint mismatch!')
         larger_dict = chk_keys if len(chk_keys) >= len(mdl_keys) else mdl_keys
         for key in larger_dict:
-            key1 = key if key in chk_keys else "N/A"
-            key2 = key if key in mdl_keys else "N/A"
+            key1 = key if key in chk_keys else " - N/A -"
+            key2 = key if key in mdl_keys else " - N/A -"
             print(f"{key2}  \  {key1}")  # model keys first
 
 

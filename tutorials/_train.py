@@ -10,27 +10,25 @@ from scgpt.loss import (
 )
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 import scgpt as scg
+
+
 logger = scg.logger
 
 sys.path.insert(0, "../")
 set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-amp = True
 
 
 
-criterion = masked_mse_loss
-criterion_cls = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, schedule_interval, gamma=0.9)
-scaler = torch.cuda.amp.GradScaler(enabled=amp)
 
 
-def train(model: nn.Module, train_loader: torch.utils.data.DataLoader) -> None:
+def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: dict, inGENE, OPTM, log_interval, epoch) -> None:
     """
     Train the model for one epoch.
     """
+    scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optomizer'], OPTM['criterion'], OPTM['scheduler']
+
     model.train()
     total_loss, total_mse = 0.0, 0.0
     start_time = time.time()
@@ -40,27 +38,26 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader) -> None:
         batch_size = len(batch_data.y)
         batch_data.to(device)
         x: torch.Tensor = batch_data.x  # (batch_size * n_genes, 2)
-        ori_gene_values = x[:, 0].view(batch_size, n_genes)
-        pert_flags = x[:, 1].long().view(batch_size, n_genes)
+        ori_gene_values = x[:, 0].view(batch_size, inGENE['n_genes'])
+        pert_flags = x[:, 1].long().view(batch_size, inGENE['n_genes'])
         target_gene_values = batch_data.y  # (batch_size, n_genes)
 
-        if include_zero_gene in ["all", "batch-wise"]:
-            if include_zero_gene == "all":
-                input_gene_ids = torch.arange(n_genes, device=device, dtype=torch.long)
+        if TRN_SET['include_zero_gene'] in ["all", "batch-wise"]:
+            if TRN_SET['include_zero_gene'] == "all":
+                input_gene_ids = torch.arange(inGENE['n_genes'], device=device, dtype=torch.long)
             else:
                 input_gene_ids = (
                     ori_gene_values.nonzero()[:, 1].flatten().unique().sort()[0]
                 )
             # sample input_gene_id
-            if len(input_gene_ids) > max_seq_len:
-                input_gene_ids = torch.randperm(len(input_gene_ids), device=device)[
-                    :max_seq_len
-                ]
+            if len(input_gene_ids) > TRN_SET['max_seq_len']:
+                input_gene_ids = torch.randperm(len(input_gene_ids), device=device)[ :TRN_SET['max_seq_len']]
+
             input_values = ori_gene_values[:, input_gene_ids]
             input_pert_flags = pert_flags[:, input_gene_ids]
             target_values = target_gene_values[:, input_gene_ids]
 
-            mapped_input_gene_ids = map_raw_id_to_vocab_id(input_gene_ids, gene_ids)
+            mapped_input_gene_ids = map_raw_id_to_vocab_id(input_gene_ids, inGENE['gene_ids'])
             mapped_input_gene_ids = mapped_input_gene_ids.repeat(batch_size, 1)
 
             # src_key_padding_mask = mapped_input_gene_ids.eq(vocab[pad_token])
@@ -68,16 +65,16 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader) -> None:
                 input_values, dtype=torch.bool, device=device
             )
 
-        with torch.cuda.amp.autocast(enabled=amp):
+        with torch.cuda.amp.autocast(enabled=TRN_SET['amp']):
             output_dict = model(
                 mapped_input_gene_ids,
                 input_values,
                 input_pert_flags,
                 src_key_padding_mask=src_key_padding_mask,
-                CLS=CLS,
-                CCE=CCE,
-                MVC=MVC,
-                ECS=ECS,
+                CLS=TRN_SET['CLS'],
+                CCE=TRN_SET['CCE'],
+                MVC=TRN_SET['MVC'],
+                ECS=TRN_SET['ECS'],
             )
             output_values = output_dict["mlm_output"]
 
@@ -125,10 +122,12 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader) -> None:
             start_time = time.time()
 
 
-def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader) -> float:
+def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader, TRN_SET, inGENE, OPTM) -> float:
     """
     Evaluate the model on the evaluation data.
     """
+    criterion = OPTM['criterion']
+
     model.eval()
     total_loss = 0.0
     total_error = 0.0
@@ -138,44 +137,42 @@ def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader) -> float
             batch_size = len(batch_data.y)
             batch_data.to(device)
             x: torch.Tensor = batch_data.x  # (batch_size * n_genes, 2)
-            ori_gene_values = x[:, 0].view(batch_size, n_genes)
-            pert_flags = x[:, 1].long().view(batch_size, n_genes)
+            ori_gene_values = x[:, 0].view(batch_size, inGENE['n_genes'])
+            pert_flags = x[:, 1].long().view(batch_size, inGENE['n_genes'])
             target_gene_values = batch_data.y  # (batch_size, n_genes)
 
-            if include_zero_gene in ["all", "batch-wise"]:
-                if include_zero_gene == "all":
-                    input_gene_ids = torch.arange(n_genes, device=device)
+            if TRN_SET['include_zero_gene'] in ["all", "batch-wise"]:
+                if TRN_SET['include_zero_gene'] == "all":
+                    input_gene_ids = torch.arange(inGENE['n_genes'], device=device)
                 else:  # when batch-wise
                     input_gene_ids = (
                         ori_gene_values.nonzero()[:, 1].flatten().unique().sort()[0]
                     )
 
                 # sample input_gene_id
-                if len(input_gene_ids) > max_seq_len:
-                    input_gene_ids = torch.randperm(len(input_gene_ids), device=device)[
-                        :max_seq_len
-                    ]
+                if len(input_gene_ids) > TRN_SET['max_seq_len']:
+                    input_gene_ids = torch.randperm(len(input_gene_ids), device=device)[ :TRN_SET['max_seq_len']]
                 input_values = ori_gene_values[:, input_gene_ids]
                 input_pert_flags = pert_flags[:, input_gene_ids]
                 target_values = target_gene_values[:, input_gene_ids]
 
-                mapped_input_gene_ids = map_raw_id_to_vocab_id(input_gene_ids, gene_ids)
+                mapped_input_gene_ids = map_raw_id_to_vocab_id(input_gene_ids, inGENE['gene_ids'])
                 mapped_input_gene_ids = mapped_input_gene_ids.repeat(batch_size, 1)
 
                 # src_key_padding_mask = mapped_input_gene_ids.eq(vocab[pad_token])
                 src_key_padding_mask = torch.zeros_like(
                     input_values, dtype=torch.bool, device=input_values.device
                 )
-            with torch.cuda.amp.autocast(enabled=amp):
+            with torch.cuda.amp.autocast(enabled=TRN_SET['amp']):
                 output_dict = model(
                     mapped_input_gene_ids,
                     input_values,
                     input_pert_flags,
                     src_key_padding_mask=src_key_padding_mask,
-                    CLS=CLS,
-                    CCE=CCE,
-                    MVC=MVC,
-                    ECS=ECS,
+                    CLS=TRN_SET['CLS'],
+                    CCE=TRN_SET['CCE'],
+                    MVC=TRN_SET['MVC'],
+                    ECS=TRN_SET['ECS'],
                     do_sample=True,
                 )
                 output_values = output_dict["mlm_output"]
@@ -190,3 +187,4 @@ def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader) -> float
             ).item()
 
     return total_loss / len(val_loader), total_error / len(val_loader)
+
