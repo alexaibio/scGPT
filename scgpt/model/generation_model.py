@@ -138,9 +138,11 @@ class TransformerGenerator(nn.Module):
         perts = self.pert_encoder(input_pert_flags)  # (batch, seq_len, embsize)
         total_embs = src + values + perts
 
+        # to cuda 12: https://github.com/bowang-lab/scGPT/issues/69
         total_embs = self.bn(total_embs.permute(0, 2, 1)).permute(0, 2, 1)
         output = self.transformer_encoder(
-            total_embs, src_key_padding_mask=src_key_padding_mask
+            total_embs,
+            src_key_padding_mask=src_key_padding_mask
         )
         return output  # (batch, seq_len, embsize)
 
