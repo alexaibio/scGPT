@@ -45,6 +45,8 @@ logger = scg.logger
 ############################################################
 # add if to use flash-attention
 # what if fast transformer?
+# GEARS: https://github.com/snap-stanford/GEARS/tree/master
+# gears paper: https://www.nature.com/articles/s41587-023-01905-6
 
 ###### 1 -  Training Settings
 if True:
@@ -258,7 +260,7 @@ patience = 0
 for epoch in range(1, epochs + 1):
     epoch_start_time = time.time()
 
-    # get adamson dataset for finetuning
+    # get adamson dataset for fine-tuning
     train_loader = pert_data.dataloader["train_loader"]
     valid_loader = pert_data.dataloader["val_loader"]
 
