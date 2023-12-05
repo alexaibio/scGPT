@@ -522,7 +522,6 @@ class FastTransformerEncoderWrapper(nn.Module):
     def build_fast_transformer_encoder(
         d_model: int, nhead: int, d_hid: int, nlayers: int, dropout: float
     ) -> nn.Module:
-        # https://github.com/idiap/fast-transformers
         from fast_transformers.builders import TransformerEncoderBuilder
 
         if d_model % nhead != 0:
@@ -531,8 +530,8 @@ class FastTransformerEncoderWrapper(nn.Module):
                 f"got d_model={d_model} and nhead={nhead}"
             )
         builder = TransformerEncoderBuilder.from_kwargs(
-            n_layers=nlayers,   # 12
-            n_heads=nhead,      # 8
+            n_layers=nlayers,
+            n_heads=nhead,
             query_dimensions=d_model // nhead,
             value_dimensions=d_model // nhead,
             feed_forward_dimensions=d_hid,
@@ -542,7 +541,6 @@ class FastTransformerEncoderWrapper(nn.Module):
             activation="gelu",
         )
         assert builder.attention_type == "linear"
-        # returns the built Transformer encoder based on the specified configuration.
         return builder.get()
 
     @staticmethod
@@ -643,9 +641,8 @@ class FlashTransformerEncoderLayer(nn.Module):
             attention_dropout=dropout,
             **factory_kwargs,
         )
-        # Version compatibility workaround
-        if not hasattr(self.self_attn, "batch_first"):
-            self.self_attn.batch_first = batch_first
+        self.self_attn.batch_first = batch_first
+
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward, **factory_kwargs)
         self.dropout = nn.Dropout(dropout)
@@ -774,7 +771,7 @@ class ContinuousValueEncoder(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         self.linear1 = nn.Linear(1, d_model)
         self.activation = nn.ReLU()
-        self.linear2 = nn.Linear(in_features=d_model, out_features=d_model)
+        self.linear2 = nn.Linear(d_model, d_model)
         self.norm = nn.LayerNorm(d_model)
         self.max_value = max_value
 
@@ -786,8 +783,8 @@ class ContinuousValueEncoder(nn.Module):
         # TODO: test using actual embedding layer if input is categorical
         # expand last dimension
         x = x.unsqueeze(-1)
-        x = torch.clamp(x, max=self.max_value)  # set upper limit
-
+        # clip x to [-inf, max_value]
+        x = torch.clamp(x, max=self.max_value)
         x = self.activation(self.linear1(x))
         x = self.linear2(x)
         x = self.norm(x)
@@ -856,16 +853,13 @@ class ExprDecoder(nn.Module):
     ):
         super().__init__()
         d_in = d_model * 2 if use_batch_labels else d_model
-
-        # Q: why do we have 1-dim output for expression decoder?
         self.fc = nn.Sequential(
             nn.Linear(d_in, d_model),
             nn.LeakyReLU(),
             nn.Linear(d_model, d_model),
             nn.LeakyReLU(),
-            nn.Linear(in_features=d_model, out_features=1),
+            nn.Linear(d_model, 1),
         )
-
         self.explicit_zero_prob = explicit_zero_prob
         if explicit_zero_prob:
             self.zero_logit = nn.Sequential(
@@ -873,7 +867,7 @@ class ExprDecoder(nn.Module):
                 nn.LeakyReLU(),
                 nn.Linear(d_model, d_model),
                 nn.LeakyReLU(),
-                nn.Linear(in_features=d_model, out_features=1),
+                nn.Linear(d_model, 1),
             )
 
     def forward(self, x: Tensor) -> Dict[str, Tensor]:
@@ -882,7 +876,6 @@ class ExprDecoder(nn.Module):
 
         if not self.explicit_zero_prob:
             return dict(pred=pred_value)
-
         zero_logits = self.zero_logit(x).squeeze(-1)  # (batch, seq_len)
         zero_probs = torch.sigmoid(zero_logits)
         return dict(pred=pred_value, zero_probs=zero_probs)

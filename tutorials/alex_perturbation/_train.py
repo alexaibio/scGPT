@@ -97,7 +97,8 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
         scaler.step(optimizer)
         scaler.update()
 
-        # torch.cuda.empty_cache()
+        # uncomment?
+        torch.cuda.empty_cache()
 
         total_loss += loss.item()
         total_mse += loss_mse.item()
