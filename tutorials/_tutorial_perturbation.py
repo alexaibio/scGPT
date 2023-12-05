@@ -71,8 +71,7 @@ if True:
         'amp': True
     }
 
-
-
+    # load pretrained model
     load_model = "../save/scGPT_human"
     load_param_prefixs = [
         "encoder",
@@ -117,6 +116,9 @@ pert_data.load(data_name=data_name)
 pert_data.prepare_split(split=split, seed=1)
 pert_data.get_dataloader(batch_size=batch_size, test_batch_size=eval_batch_size)
 
+# sanity
+train_loader = pert_data.dataloader["train_loader"]
+print(list(train_loader)[0])
 
 ###################  Load scGPT pre-trained model
 if load_model is not None:
@@ -130,8 +132,13 @@ if load_model is not None:
         if s not in vocab:
             vocab.append_token(s)
 
-    # ???? why we need pert data here?
+    # ???? why we need pert data here? is that perturbation?
     pert_data.adata.var["id_in_vocab"] = [ 1 if gene in vocab else -1 for gene in pert_data.adata.var["gene_name"] ]
+
+    # sanity
+    train_loader = pert_data.dataloader["train_loader"]
+    print(list(train_loader)[0])
+
     gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
     logger.info(
         f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "

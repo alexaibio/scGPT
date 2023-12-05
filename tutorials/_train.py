@@ -1,5 +1,6 @@
 import sys
 import time
+import numpy as np
 import warnings
 import torch
 from torch import nn
@@ -27,14 +28,18 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
     total_loss, total_mse = 0.0, 0.0
     start_time = time.time()
 
+    # SANITY: check if / next(iter(train_loader)) / has a dimension of 2? gears must be 0.0.3 version
     num_batches = len(train_loader)
     for batch, batch_data in enumerate(train_loader):
         batch_size = len(batch_data.y)
         batch_data.to(device)
         x: torch.Tensor = batch_data.x  # (batch_size * n_genes, 2)
 
+        # solving issue with x[,1] - https://github.com/bowang-lab/scGPT/issues/101
+        # TODO: understand this perturbation data
         ori_gene_values = x[:, 0].view(batch_size, inGENE['n_genes'])
         pert_flags = x[:, 1].long().view(batch_size, inGENE['n_genes'])
+
         target_gene_values = batch_data.y  # (batch_size, n_genes)
 
         if TRN_SET['include_zero_gene'] in ["all", "batch-wise"]:
