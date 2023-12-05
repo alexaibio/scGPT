@@ -41,6 +41,8 @@ print(f"saving to {save_dir}")
 logger = scg.logger
 #scg.utils.add_file_handler(logger, save_dir / "run.log")
 
+print(torch.cuda.memory_summary(device=None, abbreviated=False))
+torch.cuda.empty_cache()
 
 ############################################################
 # add if to use flash-attention
@@ -81,8 +83,8 @@ if True:
 
     # settings for optimizer
     lr = 1e-4  # or 1e-4
-    batch_size = 64
-    eval_batch_size = 64
+    batch_size = 24  # was 64
+    eval_batch_size = 24  # was 64
     epochs = 15
     schedule_interval = 1
     early_stop = 5
