@@ -35,7 +35,7 @@ warnings.filterwarnings("ignore")
 set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-save_dir = Path(f"./save/dev_perturb-{time.strftime('%b%d-%H-%M')}/")
+save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 print(f"saving to {save_dir}")
 logger = scg.logger
@@ -82,10 +82,10 @@ if True:
     ]
 
     # settings for optimizer
-    lr = 1e-4  # or 1e-4
-    batch_size = 24  # was 64
-    eval_batch_size = 24  # was 64
-    epochs = 15
+    lr = 5e-5  # or 1e-4
+    batch_size = 28  # was 64
+    eval_batch_size = 28  # was 64
+    epochs = 10
     schedule_interval = 1
     early_stop = 5
 
@@ -99,7 +99,8 @@ if True:
     use_fast_transformer = True  # whether to use fast transformer
 
     # logging
-    log_interval = 100
+    log_interval = 200
+
 
 #############  choose a validation dataset: adamson or norman
 logger.info(' Load finetuning dataset')
@@ -310,6 +311,7 @@ for epoch in range(1, epochs + 1):
             logger.info(f"Early stop at epoch {epoch}")
             break
 
+    save_dir.mkdir(parents=True, exist_ok=True)
     torch.save(
         model.state_dict(),
         save_dir / f"model_{epoch}.pt",
