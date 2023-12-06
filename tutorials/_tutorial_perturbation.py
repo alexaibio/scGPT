@@ -99,7 +99,7 @@ if True:
     use_fast_transformer = True  # whether to use fast transformer
 
     # logging
-    log_interval = 200
+    log_interval = 250
 
 
 #############  choose a validation dataset: adamson or norman
@@ -314,7 +314,7 @@ for epoch in range(1, epochs + 1):
     save_dir.mkdir(parents=True, exist_ok=True)
     torch.save(
         model.state_dict(),
-        save_dir / f"model_epoch_{epoch}.pt",
+        save_dir / f"model_epoch_{epoch}_val_loss_{val_loss:5.4f}.pt",
     )
 
     scheduler.step()
