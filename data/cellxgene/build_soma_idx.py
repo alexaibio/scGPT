@@ -1,5 +1,4 @@
 ### This script is used to retrieve cell soma ids from cellxgene census
-
 import cellxgene_census
 from data_config import VALUE_FILTER, VERSION
 from typing import List
@@ -10,7 +9,6 @@ import argparse
 cellxgene_census.get_census_version_directory()
 
 parser = argparse.ArgumentParser(description='Build soma index list based on query')
-
 
 parser.add_argument("--query-name",
     type=str,
@@ -32,15 +30,15 @@ def retrieve_soma_idx(query_name) -> List[str]:
     """
     This function is used to retrieve cell soma ids from cellxgene census based on the query name
     """
-
     with cellxgene_census.open_soma(census_version=VERSION) as census:
         cell_metadata = census["census_data"]["homo_sapiens"].obs.read(
-        value_filter = VALUE_FILTER[query_name],
+        value_filter = VALUE_FILTER[query_name],  # VALUE_FILTER = "suspension_type != 'na' and disease == 'normal' and tissue_general == 'brain'"
         column_names = ["soma_joinid"]
-    )
+        )
     cell_metadata = cell_metadata.concat()
     cell_metadata = cell_metadata.to_pandas()
     return cell_metadata["soma_joinid"].to_list()
+
 
 def convert2file(idx_list: List[str], query_name: str, output_dir: str) -> None:
     """
@@ -57,6 +55,7 @@ def convert2file(idx_list: List[str], query_name: str, output_dir: str) -> None:
         for item in idx_list:
             fp.write("%s\n" % item)
 
+
 def build_soma_idx(query_name, output_dir) -> None:
     """
     This function is used to build the soma idx for cells under query_name
@@ -65,7 +64,7 @@ def build_soma_idx(query_name, output_dir) -> None:
     convert2file(idx_list, query_name, output_dir)
 
 
-# if __name__ ==  "__main__":
+#if __name__ ==  "__main__":
 #     build_soma_idx("heart")
 
 build_soma_idx(args.query_name, args.output_dir)
