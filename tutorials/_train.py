@@ -115,8 +115,8 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
             # ppl = math.exp(cur_loss)
             logger.info(
                 f"| epoch {epoch:3d} | {batch:3d}/{num_batches:3d} batches | "
-                f"lr {lr:05.4f} | ms/batch {ms_per_batch:5.2f} | "
-                f"loss {cur_loss:5.2f} | mse {cur_mse:5.2f} |"
+                f"lr {lr:06.5f} | ms/batch {ms_per_batch:5.2f} | "
+                f"loss {cur_loss:6.3f} | mse {cur_mse:6.3f} |"
             )
             total_loss = 0
             total_mse = 0
