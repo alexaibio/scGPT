@@ -1,101 +1,160 @@
+import json
+import os
+import sys
 import time
 import copy
+from pathlib import Path
 import warnings
 import torch
 import numpy as np
 import matplotlib
 from torch import nn
+from torch.nn import functional as F
+from torchtext.vocab import Vocab
+from torchtext.vocab import (Vocab as VocabPybind)
+
+# GEARS: Predicting transcriptional outcomes of novel multi-gene perturbations
+from gears import PertData
+
+sys.path.insert(0, "../")
 import scgpt as scg
 from scgpt.model import TransformerGenerator
-from scgpt.loss import masked_mse_loss
-from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from scgpt.utils import set_seed
-from tutorials.alex_perturbation._train import train, evaluate
-from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model
-from tutorials._utils import _load_foundational_vocabulary_add_spec_tokens
-from tutorials.alex_perturbation._conf_perturb import device
-from _conf_perturb import (
-    TRN_PAR, INPT_PAR,
-    get_foundation_model_parameters,
-    log_interval,
-    perturbation_data_source, split
+from scgpt.loss import (
+    masked_mse_loss,
+    criterion_neg_log_bernoulli,
+    masked_relative_error,
 )
-from gears import PertData
-from tutorials._utils import get_perturb_data_folder, get_root_folder
+from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
+from scgpt.tokenizer.gene_tokenizer import GeneVocab
+from scgpt.utils import set_seed, map_raw_id_to_vocab_id
+from tutorials._train import train, evaluate
+from tutorials._predict import plot_perturbation
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
+save_dir.mkdir(parents=True, exist_ok=True)
+print(f"saving to {save_dir}")
 logger = scg.logger
-if device == 'cuda':
-    print(torch.cuda.memory_summary(device=None, abbreviated=False))
-    torch.cuda.empty_cache()
+#scg.utils.add_file_handler(logger, save_dir / "run.log")
+
+print(torch.cuda.memory_summary(device=None, abbreviated=False))
+torch.cuda.empty_cache()
+
+############################################################
+# add if to use flash-attention
+# what if fast transformer?
+# GEARS: https://github.com/snap-stanford/GEARS/tree/master
+# gears paper: https://www.nature.com/articles/s41587-023-01905-6
+
+from conf_perturb import (
+    OPT_SET, TRN_SET,
+    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
+    log_interval
+)
 
 
-########## Set parameters and folders paths: need to set up:
-# _utils.get_perturb_folder, get_root_folder
-# tutorials.alex_perturbation._conf_perturb import device
-#
-
-print(f'Perturbation data is in folder {get_perturb_data_folder()}')
-
-# create folder for today's fine-tuning
-run_name = f"fine_tune_perturb-{time.strftime('%b%d-%H-%M')}"
-INPT_PAR['run_name'] = run_name
-run_save_dir = get_perturb_data_folder() / "save" / run_name
-run_save_dir.mkdir(parents=True, exist_ok=True)
-print(f"saving to {run_save_dir}")
-
-
-
-######## load scGPT pre-trained model
-# Naming: Param prefixes are prefixes of their layers names
+# load pretrained model
+load_model = "../save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
     "transformer_encoder",
 ]
 
-# use pretrained model - all HUMAN or BRAIN or BLOOD
-foundational_model_path = get_root_folder() / "save/scGPT_human"
-model_config_file = foundational_model_path / "args.json"
-found_model_file = foundational_model_path / "best_model.pt"
-found_vocab_file = foundational_model_path / "vocab.json"
 
-# model vocabulary (gene id and names):  60697 -> A1BG
-vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file, INPT_PAR['special_tokens'])
 
-# model config parameters...
-# embsize=512, nhead=8, d_hid=512, nlayers=12, n_layers_cls=3
-embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
-    found_model_file,
-    model_config_file
+#############  choose a validation dataset: adamson or norman
+logger.info(' Load finetuning dataset')
+data_name = "adamson"
+split = "simulation"
+if data_name == "norman":
+    perts_to_plot = ["SAMD1+ZBTB1"]
+elif data_name == "adamson":
+    perts_to_plot = ["KCTD16+ctrl"]
+
+
+# log running date and current git commit
+logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
+pert_data = PertData("./data")   # downloading, from gears import PertData
+pert_data.load(data_name=data_name)
+pert_data.prepare_split(split=split, seed=1)
+pert_data.get_dataloader(batch_size=OPT_SET['batch_size'], test_batch_size=OPT_SET['eval_batch_size'])
+
+# sanity
+train_loader = pert_data.dataloader["train_loader"]
+print(list(train_loader)[0])
+
+
+###################  Load scGPT pre-trained model
+if load_model is not None:
+    model_dir = Path(load_model)
+    model_config_file = model_dir / "args.json"
+    model_file = model_dir / "best_model.pt"
+    vocab_file = model_dir / "vocab.json"
+
+    vocab = GeneVocab.from_file(vocab_file)
+    for s in TRN_SET['special_tokens']:
+        if s not in vocab:
+            vocab.append_token(s)
+
+    # ???? why we need pert data here? is that perturbation?
+    pert_data.adata.var["id_in_vocab"] = [ 1 if gene in vocab else -1 for gene in pert_data.adata.var["gene_name"] ]
+
+    # sanity
+    train_loader = pert_data.dataloader["train_loader"]
+    print(list(train_loader)[0])
+
+    gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
+    logger.info(
+        f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
+        f"in vocabulary of size {len(vocab)}."
+    )
+    genes = pert_data.adata.var["gene_name"].tolist()
+
+    # load pre-trained model
+    with open(model_config_file, "r") as f:
+        model_configs = json.load(f)
+    logger.info(
+        f"Resume model from {model_file}, the model args will override the "
+        f"config {model_config_file}."
+    )
+    embsize = model_configs["embsize"]
+    nhead = model_configs["nheads"]
+    d_hid = model_configs["d_hid"]
+    nlayers = model_configs["nlayers"]
+    n_layers_cls = model_configs["n_layers_cls"]
+    # ?? loaded: genes, embzize etc
+else:
+    genes = pert_data.adata.var["gene_name"].tolist()
+    vocab = Vocab(
+        VocabPybind(genes + TRN_SET['special_tokens'], None)
+    )  # bidirectional lookup [gene <-> int]
+
+
+## TODO: save pert_data here
+
+vocab.set_default_index(vocab["<pad>"])
+gene_ids = np.array(
+    [vocab[gene] if gene in vocab else vocab["<pad>"] for gene in genes],
+    dtype=int
 )
+n_genes = len(genes)
 
-
-###### Load and correct perturbation data
-# pert_data.adata = 68603(observations) x 5060 (genes)
-# why perturbations are like CREB1+ctrl - is it control should be separated?
-# data_name = "adamson", split="simulation"
-pert_data: PertData = _load_perturbation_dataset(perturbation_data_source, split)
-
-# in foundational model set token to <pad> if it is not in perturbation gene tokens
-gene_ids: np.ndarray
-n_genes_pert: int
-gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
-
-# create data structure to pass as a parameter
 inGENE = {
-    'gene_ids': gene_ids,   # np.ndarray
-    'n_genes': n_genes_pert # int
+    'gene_ids': gene_ids,
+    'n_genes': n_genes
 }
 
 
 
 ###############################
-# 2 - Instantiate and load pre-trained foundational models and then do fine-tuning
+# 2 - Create and train scGpt
 
-ntokens = len(vocab_foundational)  # size of vocabulary
+ntokens = len(vocab)  # size of vocabulary
 model = TransformerGenerator(
     ntokens,
     embsize,
@@ -104,29 +163,25 @@ model = TransformerGenerator(
     nlayers,
     nlayers_cls=n_layers_cls,
     n_cls=1,
-    vocab=vocab_foundational,
+    vocab=vocab,
     dropout=dropout,
-    pad_token=INPT_PAR['pad_token'],
-    pad_value=INPT_PAR['pad_value'],
-    pert_pad_id=INPT_PAR['pert_pad_id'],
-    do_mvc=INPT_PAR['MVC'],
-    cell_emb_style=INPT_PAR['cell_emb_style'],
-    mvc_decoder_style=INPT_PAR['mvc_decoder_style'],
+    pad_token=TRN_SET['pad_token'],
+    pad_value=TRN_SET['pad_value'],
+    pert_pad_id=TRN_SET['pert_pad_id'],
+    do_mvc=TRN_SET['MVC'],
+    cell_emb_style=TRN_SET['cell_emb_style'],
+    mvc_decoder_style=TRN_SET['mvc_decoder_style'],
     use_fast_transformer=use_fast_transformer,
 )
 
-# TODO: could use load_pretrained() here to avoid flash-attention
-pretrained_dict = torch.load(found_model_file, map_location=device)
+# can I use load_pretrained() here to avois flash-attention?
+pretrained_dict = torch.load(model_file, map_location=device)
 
-# uncomment for model debug to compare the layers
-#from tutorials._utils import _compare_model_and_checkpoint
-#_compare_model_and_checkpoint(model, pretrained_dict)
+from tutorials._utils import _compare_model_and_checkpoint
+_compare_model_and_checkpoint(model, pretrained_dict)
 
-# filer by load_param_prefixes: remove layers which are not in param prefixes (WHY?)
 # load_param_prefixs: "encoder", "value_encoder", "transformer_encoder" - what is rthe difference?
-
-# load that dictionary into a model
-if (load_param_prefixs is not None) and foundational_model_path is not None:
+if (load_param_prefixs is not None) and load_model is not None:
     # only load params that start with the prefix (why???? Noi decoder? no cls_decoder? no mvc_decoder)
     pretrained_dict = {
         k: v
@@ -139,10 +194,10 @@ if (load_param_prefixs is not None) and foundational_model_path is not None:
     model_dict = model.state_dict()
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
-elif foundational_model_path is not None:  # either param_prefixed or model is None
+elif load_model is not None:  # either param_prefixed or model is None
     try:
-        model.load_state_dict(torch.load(found_model_file))
-        logger.info(f"Loading all model params from {found_model_file}")
+        model.load_state_dict(torch.load(model_file))
+        logger.info(f"Loading all model params from {model_file}")
     except Exception as e:
         print(e)
 
@@ -164,23 +219,23 @@ model.to(device)
 print(model)
 
 
-################### FINE TUNING: train and validate def here
+################### FINETUNING: train and validate def here
 
-optimizer = torch.optim.Adam(model.parameters(), lr=TRN_PAR['lr'])
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, TRN_PAR['schedule_interval'], gamma=0.9)
-OPTM_PARAM = {
-    'criterion': masked_mse_loss,         # NOTE: must be changed for every particular fine-tuning task
+optimizer = torch.optim.Adam(model.parameters(), lr=OPT_SET['lr'])
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, OPT_SET['schedule_interval'], gamma=0.9)
+OPTM = {
+    'criterion': masked_mse_loss,
     'criterion_cls': nn.CrossEntropyLoss(),
     'optimizer': optimizer,
     'scheduler': scheduler,
-    'scaler': torch.cuda.amp.GradScaler(enabled=INPT_PAR['amp'])
+    'scaler': torch.cuda.amp.GradScaler(enabled=TRN_SET['amp'])
 }
 
 best_val_loss = float("inf")
 best_model = None
 patience = 0
 
-for current_epoch in range(1, TRN_PAR['epochs'] + 1):
+for epoch in range(1, OPT_SET['epochs'] + 1):
     epoch_start_time = time.time()
 
     # get adamson dataset for fine-tuning
@@ -190,25 +245,25 @@ for current_epoch in range(1, TRN_PAR['epochs'] + 1):
     train(
         model,
         train_loader,
-        INPT_PAR,
+        TRN_SET,
         inGENE,
-        OPTM_PARAM,
+        OPTM,
         log_interval,
-        current_epoch
+        epoch
     )
 
     val_loss, val_mre = evaluate(
         model,
         valid_loader,
-        INPT_PAR,
+        TRN_SET,
         inGENE,
-        OPTM_PARAM
+        OPTM
     )
 
     elapsed = time.time() - epoch_start_time
     logger.info("-" * 89)
     logger.info(
-        f"| end of epoch {current_epoch:3d} | time: {elapsed:5.2f}s | "
+        f"| end of epoch {epoch:3d} | time: {elapsed:5.2f}s | "
         f"valid loss/mse {val_loss:5.4f} |"
     )
     logger.info("-" * 89)
@@ -220,20 +275,23 @@ for current_epoch in range(1, TRN_PAR['epochs'] + 1):
         patience = 0
     else:
         patience += 1
-        if patience >= TRN_PAR['early_stop']:
-            logger.info(f"Early stop at epoch {current_epoch}")
+        if patience >= OPT_SET['early_stop']:
+            logger.info(f"Early stop at epoch {epoch}")
             break
 
-    run_save_dir.mkdir(parents=True, exist_ok=True)
+    save_dir.mkdir(parents=True, exist_ok=True)
     torch.save(
         model.state_dict(),
-        run_save_dir / f"model_epoch_{current_epoch}_val_loss_{val_loss:5.4f}.pt",
+        save_dir / f"model_epoch_{epoch}_val_loss_{val_loss:5.4f}.pt",
     )
 
     scheduler.step()
 
-logger.info("  ****** Fine-tuning of the foundational model has been completed! *****")
 
 
+################### Predict and Plot
 
+# predict(best_model, [["FEV"], ["FEV", "SAMD11"]])
+for p in perts_to_plot:
+    plot_perturbation(best_model, pert_data, p, pool_size=300, save_file=f"{save_dir}/{p}.png")
 
