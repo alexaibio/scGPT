@@ -12,9 +12,6 @@ from torch import nn
 from torchtext.vocab import Vocab
 from torchtext.vocab import (Vocab as VocabPybind)
 
-# GEARS: Predicting transcriptional outcomes of novel multi-gene perturbations
-from gears import PertData
-
 sys.path.insert(0, "../")
 import scgpt as scg
 from scgpt.model import TransformerGenerator
@@ -29,11 +26,12 @@ from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
 from tutorials._predict import plot_perturbation
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
+from tutorials.conf_perturb import device
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
@@ -135,8 +133,8 @@ model = TransformerGenerator(
 # can I use load_pretrained() here to avois flash-attention?
 pretrained_dict = torch.load(model_file, map_location=device)
 
-from tutorials._utils import _compare_model_and_checkpoint
-_compare_model_and_checkpoint(model, pretrained_dict)
+#from tutorials._utils import _compare_model_and_checkpoint
+#_compare_model_and_checkpoint(model, pretrained_dict)
 
 # load_param_prefixs: "encoder", "value_encoder", "transformer_encoder" - what is rthe difference?
 if (load_param_prefixs is not None) and load_model is not None:
@@ -247,9 +245,5 @@ for epoch in range(1, OPT_SET['epochs'] + 1):
 
 
 
-################### Predict and Plot
 
-# predict(best_model, [["FEV"], ["FEV", "SAMD11"]])
-for p in perts_to_plot:
-    plot_perturbation(best_model, pert_data, p, pool_size=300, save_file=f"{save_dir}/{p}.png")
 
