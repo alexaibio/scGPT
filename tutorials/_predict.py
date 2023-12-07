@@ -5,10 +5,12 @@ from typing import Iterable, List, Tuple, Dict, Union, Optional
 from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
 from conf_perturb import (
     OPT_SET, TRN_SET,
     embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
-    log_interval
+    log_interval,
+    data_name, split, perts_to_plot
 )
 
 
@@ -28,6 +30,11 @@ def predict(
             of cells in the control and predict their perturbation results. Report
             the stats of these predictions. If `None`, use all control cells.
     """
+    pert_data = _load_perturbation_dataset(data_name, split)
+    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
+
+
+
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
     if pool_size is None:
