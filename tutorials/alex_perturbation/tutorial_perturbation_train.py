@@ -9,7 +9,6 @@ import torch
 import numpy as np
 import matplotlib
 from torch import nn
-from torch.nn import functional as F
 from torchtext.vocab import Vocab
 from torchtext.vocab import (Vocab as VocabPybind)
 
@@ -29,6 +28,7 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
 from tutorials._predict import plot_perturbation
+from tutorials._load_data import load_perturbation_dataset
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
@@ -41,8 +41,9 @@ print(f"saving to {save_dir}")
 logger = scg.logger
 #scg.utils.add_file_handler(logger, save_dir / "run.log")
 
-print(torch.cuda.memory_summary(device=None, abbreviated=False))
-torch.cuda.empty_cache()
+if device == 'cuda':
+    print(torch.cuda.memory_summary(device=None, abbreviated=False))
+    torch.cuda.empty_cache()
 
 ############################################################
 # add if to use flash-attention
@@ -57,18 +58,8 @@ from conf_perturb import (
 )
 
 
-# load pretrained model
-load_model = "../save/scGPT_human"
-load_param_prefixs = [
-    "encoder",
-    "value_encoder",
-    "transformer_encoder",
-]
-
-
-
 #############  choose a validation dataset: adamson or norman
-logger.info(' Load finetuning dataset')
+logger.info(' Load finetuning perturbation dataset')
 data_name = "adamson"
 split = "simulation"
 if data_name == "norman":
@@ -77,72 +68,68 @@ elif data_name == "adamson":
     perts_to_plot = ["KCTD16+ctrl"]
 
 
-# log running date and current git commit
-logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
-pert_data = PertData("./data")   # downloading, from gears import PertData
-pert_data.load(data_name=data_name)
-pert_data.prepare_split(split=split, seed=1)
-pert_data.get_dataloader(batch_size=OPT_SET['batch_size'], test_batch_size=OPT_SET['eval_batch_size'])
-
-# sanity
-train_loader = pert_data.dataloader["train_loader"]
-print(list(train_loader)[0])
 
 
-###################  Load scGPT pre-trained model
-if load_model is not None:
-    model_dir = Path(load_model)
-    model_config_file = model_dir / "args.json"
-    model_file = model_dir / "best_model.pt"
-    vocab_file = model_dir / "vocab.json"
+######## load scGPT pre-trained model
 
-    vocab = GeneVocab.from_file(vocab_file)
-    for s in TRN_SET['special_tokens']:
-        if s not in vocab:
-            vocab.append_token(s)
+# pretrained model
+load_model = "../save/scGPT_human"
+load_param_prefixs = [
+    "encoder",
+    "value_encoder",
+    "transformer_encoder",
+]
 
-    # ???? why we need pert data here? is that perturbation?
-    pert_data.adata.var["id_in_vocab"] = [ 1 if gene in vocab else -1 for gene in pert_data.adata.var["gene_name"] ]
+model_dir = Path(load_model)
+model_config_file = model_dir / "args.json"
+model_file = model_dir / "best_model.pt"
+vocab_file = model_dir / "vocab.json"
 
-    # sanity
-    train_loader = pert_data.dataloader["train_loader"]
-    print(list(train_loader)[0])
+# model vocabulary...
+vocab_foundational = GeneVocab.from_file(vocab_file)     # 60697, gene names: A1BG etc
+for s in TRN_SET['special_tokens']:
+    if s not in vocab_foundational:
+        vocab_foundational.append_token(s)
 
-    gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
-    logger.info(
-        f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
-        f"in vocabulary of size {len(vocab)}."
-    )
-    genes = pert_data.adata.var["gene_name"].tolist()
+# model itself...
+with open(model_config_file, "r") as f:
+    model_configs = json.load(f)
+logger.info(
+    f"Resume model from {model_file}, the model args will override the "
+    f"config {model_config_file}."
+)
 
-    # load pre-trained model
-    with open(model_config_file, "r") as f:
-        model_configs = json.load(f)
-    logger.info(
-        f"Resume model from {model_file}, the model args will override the "
-        f"config {model_config_file}."
-    )
-    embsize = model_configs["embsize"]
-    nhead = model_configs["nheads"]
-    d_hid = model_configs["d_hid"]
-    nlayers = model_configs["nlayers"]
-    n_layers_cls = model_configs["n_layers_cls"]
-    # ?? loaded: genes, embzize etc
-else:
-    genes = pert_data.adata.var["gene_name"].tolist()
-    vocab = Vocab(
-        VocabPybind(genes + TRN_SET['special_tokens'], None)
-    )  # bidirectional lookup [gene <-> int]
+# model configs...
+embsize = model_configs["embsize"]
+nhead = model_configs["nheads"]
+d_hid = model_configs["d_hid"]
+nlayers = model_configs["nlayers"]
+n_layers_cls = model_configs["n_layers_cls"]
 
 
-## TODO: save pert_data here
+###### Load and correct perturbation data
+# original data
+pert_data = load_perturbation_dataset(data_name, split)
 
-vocab.set_default_index(vocab["<pad>"])
+# add a "id_in_vocab" as 1 if it is in the gene list of pre-trained foundational model and -1 otherwise
+pert_data.adata.var["id_in_vocab"] = [1 if gene in vocab_foundational else -1 for gene in pert_data.adata.var["gene_name"]]
+
+# print how much genes in pert dataset in original foundational model
+gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
+logger.info(
+    f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
+    f"in vocabulary of size {len(vocab_foundational)}."
+)
+
+genes_pert_dataset = pert_data.adata.var["gene_name"].tolist()
+
+
+vocab_foundational.set_default_index(vocab_foundational["<pad>"])
 gene_ids = np.array(
-    [vocab[gene] if gene in vocab else vocab["<pad>"] for gene in genes],
+    [vocab_foundational[gene] if gene in vocab_foundational else vocab_foundational["<pad>"] for gene in genes_pert_dataset],
     dtype=int
 )
-n_genes = len(genes)
+n_genes = len(genes_pert_dataset)
 
 inGENE = {
     'gene_ids': gene_ids,
@@ -154,7 +141,7 @@ inGENE = {
 ###############################
 # 2 - Create and train scGpt
 
-ntokens = len(vocab)  # size of vocabulary
+ntokens = len(vocab_foundational)  # size of vocabulary
 model = TransformerGenerator(
     ntokens,
     embsize,
@@ -163,7 +150,7 @@ model = TransformerGenerator(
     nlayers,
     nlayers_cls=n_layers_cls,
     n_cls=1,
-    vocab=vocab,
+    vocab=vocab_foundational,
     dropout=dropout,
     pad_token=TRN_SET['pad_token'],
     pad_value=TRN_SET['pad_value'],
