@@ -1,9 +1,7 @@
 
 ###### 1 -  Training Settings
 
-# settings for data prcocessing
-
-
+# settings for data processing
 TRN_SET = {
     'pad_token': "<pad>",
     'special_tokens': ["<pad>", "<cls>", "<eoc>"],
@@ -45,3 +43,11 @@ use_fast_transformer = True  # whether to use fast transformer
 
 # logging
 log_interval = 250
+
+
+data_name = "adamson"
+split = "simulation"
+if data_name == "norman":
+    perts_to_plot = ["SAMD1+ZBTB1"]
+elif data_name == "adamson":
+    perts_to_plot = ["KCTD16+ctrl"]

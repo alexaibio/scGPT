@@ -28,7 +28,7 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
 from tutorials._predict import plot_perturbation
-from tutorials._load_data import load_perturbation_dataset
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
@@ -54,19 +54,9 @@ if device == 'cuda':
 from conf_perturb import (
     OPT_SET, TRN_SET,
     embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
-    log_interval
+    log_interval,
+    data_name, split, perts_to_plot
 )
-
-
-#############  choose a validation dataset: adamson or norman
-logger.info(' Load finetuning perturbation dataset')
-data_name = "adamson"
-split = "simulation"
-if data_name == "norman":
-    perts_to_plot = ["SAMD1+ZBTB1"]
-elif data_name == "adamson":
-    perts_to_plot = ["KCTD16+ctrl"]
-
 
 
 
@@ -109,31 +99,12 @@ n_layers_cls = model_configs["n_layers_cls"]
 
 ###### Load and correct perturbation data
 # original data
-pert_data = load_perturbation_dataset(data_name, split)
-
-# add a "id_in_vocab" as 1 if it is in the gene list of pre-trained foundational model and -1 otherwise
-pert_data.adata.var["id_in_vocab"] = [1 if gene in vocab_foundational else -1 for gene in pert_data.adata.var["gene_name"]]
-
-# print how much genes in pert dataset in original foundational model
-gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
-logger.info(
-    f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
-    f"in vocabulary of size {len(vocab_foundational)}."
-)
-
-genes_pert_dataset = pert_data.adata.var["gene_name"].tolist()
-
-
-vocab_foundational.set_default_index(vocab_foundational["<pad>"])
-gene_ids = np.array(
-    [vocab_foundational[gene] if gene in vocab_foundational else vocab_foundational["<pad>"] for gene in genes_pert_dataset],
-    dtype=int
-)
-n_genes = len(genes_pert_dataset)
+pert_data = _load_perturbation_dataset(data_name, split)
+gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
 
 inGENE = {
     'gene_ids': gene_ids,
-    'n_genes': n_genes
+    'n_genes': n_genes_pert
 }
 
 
