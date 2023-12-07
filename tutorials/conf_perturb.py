@@ -1,3 +1,5 @@
+import torch
+
 
 ###### 1 -  Training Settings
 
@@ -51,3 +53,5 @@ if data_name == "norman":
     perts_to_plot = ["SAMD1+ZBTB1"]
 elif data_name == "adamson":
     perts_to_plot = ["KCTD16+ctrl"]
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

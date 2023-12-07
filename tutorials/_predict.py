@@ -1,11 +1,13 @@
 import numpy as np
+from pathlib import Path
 import torch
 from torch import nn
 from typing import Iterable, List, Tuple, Dict, Union, Optional
 from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
+from scgpt.tokenizer.gene_tokenizer import GeneVocab
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset, _load_vocabulary_foundational
 from conf_perturb import (
     OPT_SET, TRN_SET,
     embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
@@ -16,7 +18,6 @@ from conf_perturb import (
 
 def predict(
         model: TransformerGenerator,
-        pert_data,
         pert_list: List[str],
         pool_size: Optional[int] = None
 ) -> Dict:
@@ -30,10 +31,11 @@ def predict(
             of cells in the control and predict their perturbation results. Report
             the stats of these predictions. If `None`, use all control cells.
     """
+
+    vocab_foundational = _load_vocabulary_foundational()
+
     pert_data = _load_perturbation_dataset(data_name, split)
     gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
-
-
 
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
@@ -77,7 +79,7 @@ def plot_perturbation(
         model: nn.Module,
         pert_data,
         query: str,
-        save_file: str = None,
+        save_plot_file: str = None,
         pool_size: int = None,
 
 ):
@@ -130,6 +132,6 @@ def plot_perturbation(
     plt.tick_params(axis="y", which="major", pad=5)
     sns.despine()
 
-    if save_file:
-        plt.savefig(save_file, bbox_inches="tight", transparent=False)
+    if save_plot_file:
+        plt.savefig(save_plot_file, bbox_inches="tight", transparent=False)
     # plt.show()
