@@ -50,56 +50,21 @@ torch.cuda.empty_cache()
 # GEARS: https://github.com/snap-stanford/GEARS/tree/master
 # gears paper: https://www.nature.com/articles/s41587-023-01905-6
 
-###### 1 -  Training Settings
-if True:
-    # settings for data prcocessing
-    pad_token = "<pad>"
-    special_tokens = [pad_token, "<cls>", "<eoc>"]
-    pad_value = 0  # for padding values
-    pert_pad_id = 2
+from conf_perturb import (
+    OPT_SET, TRN_SET,
+    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
+    log_interval
+)
 
-    TRN_SET = {
-        'n_hvg': 0,                 # number of highly variable genes
-        'include_zero_gene': "all",  # include zero expr genes in training input, "all", "batch-wise", "row-wise",False
-        'max_seq_len': 1536,
-        # settings for training
-        'MLM': True,        # whether to use masked language modeling, currently it is always on.
-        'CLS': False,       # celltype classification objective
-        'CCE': False,       # Contrastive cell embedding objective
-        'MVC': False,       # Masked value prediction for cell embedding
-        'ECS': False,  # Elastic cell similarity objective
-        'cell_emb_style': "cls",
-        'mvc_decoder_style': "inner product, detach",
-        'amp': True
-    }
 
-    # load pretrained model
-    load_model = "../save/scGPT_human"
-    load_param_prefixs = [
-        "encoder",
-        "value_encoder",
-        "transformer_encoder",
-    ]
+# load pretrained model
+load_model = "../save/scGPT_human"
+load_param_prefixs = [
+    "encoder",
+    "value_encoder",
+    "transformer_encoder",
+]
 
-    # settings for optimizer
-    lr = 5e-5  # or 1e-4
-    batch_size = 28  # was 64
-    eval_batch_size = 28  # was 64
-    epochs = 10
-    schedule_interval = 1
-    early_stop = 5
-
-    # settings for the model
-    embsize = 512  # embedding dimension
-    d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 8  # number of heads in nn.MultiheadAttention
-    n_layers_cls = 3
-    dropout = 0.2  # dropout probability
-    use_fast_transformer = True  # whether to use fast transformer
-
-    # logging
-    log_interval = 250
 
 
 #############  choose a validation dataset: adamson or norman
@@ -117,11 +82,12 @@ logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
 pert_data = PertData("./data")   # downloading, from gears import PertData
 pert_data.load(data_name=data_name)
 pert_data.prepare_split(split=split, seed=1)
-pert_data.get_dataloader(batch_size=batch_size, test_batch_size=eval_batch_size)
+pert_data.get_dataloader(batch_size=OPT_SET['batch_size'], test_batch_size=OPT_SET['eval_batch_size'])
 
 # sanity
 train_loader = pert_data.dataloader["train_loader"]
 print(list(train_loader)[0])
+
 
 ###################  Load scGPT pre-trained model
 if load_model is not None:
@@ -131,7 +97,7 @@ if load_model is not None:
     vocab_file = model_dir / "vocab.json"
 
     vocab = GeneVocab.from_file(vocab_file)
-    for s in special_tokens:
+    for s in TRN_SET['special_tokens']:
         if s not in vocab:
             vocab.append_token(s)
 
@@ -165,9 +131,11 @@ if load_model is not None:
 else:
     genes = pert_data.adata.var["gene_name"].tolist()
     vocab = Vocab(
-        VocabPybind(genes + special_tokens, None)
+        VocabPybind(genes + TRN_SET['special_tokens'], None)
     )  # bidirectional lookup [gene <-> int]
 
+
+## TODO: save pert_data here
 
 vocab.set_default_index(vocab["<pad>"])
 gene_ids = np.array(
@@ -197,9 +165,9 @@ model = TransformerGenerator(
     n_cls=1,
     vocab=vocab,
     dropout=dropout,
-    pad_token=pad_token,
-    pad_value=pad_value,
-    pert_pad_id=pert_pad_id,
+    pad_token=TRN_SET['pad_token'],
+    pad_value=TRN_SET['pad_value'],
+    pert_pad_id=TRN_SET['pert_pad_id'],
     do_mvc=TRN_SET['MVC'],
     cell_emb_style=TRN_SET['cell_emb_style'],
     mvc_decoder_style=TRN_SET['mvc_decoder_style'],
@@ -253,8 +221,8 @@ print(model)
 
 ################### FINETUNING: train and validate def here
 
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, schedule_interval, gamma=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=OPT_SET['lr'])
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, OPT_SET['schedule_interval'], gamma=0.9)
 OPTM = {
     'criterion': masked_mse_loss,
     'criterion_cls': nn.CrossEntropyLoss(),
@@ -267,7 +235,7 @@ best_val_loss = float("inf")
 best_model = None
 patience = 0
 
-for epoch in range(1, epochs + 1):
+for epoch in range(1, OPT_SET['epochs'] + 1):
     epoch_start_time = time.time()
 
     # get adamson dataset for fine-tuning
@@ -307,7 +275,7 @@ for epoch in range(1, epochs + 1):
         patience = 0
     else:
         patience += 1
-        if patience >= early_stop:
+        if patience >= OPT_SET['early_stop']:
             logger.info(f"Early stop at epoch {epoch}")
             break
 
