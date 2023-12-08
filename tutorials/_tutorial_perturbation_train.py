@@ -6,7 +6,6 @@ import copy
 from pathlib import Path
 import warnings
 import torch
-import numpy as np
 import matplotlib
 from torch import nn
 from torchtext.vocab import Vocab
@@ -27,72 +26,63 @@ from tutorials._train import train, evaluate
 from tutorials._predict import plot_perturbation
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
 from tutorials.conf_perturb import device
+from conf_perturb import (
+    OPT_SET, TRN_SET,
+    get_foundation_model_parameters,
+    log_interval,
+    data_name, split, perts_to_plot
+)
+from tutorials._load_data import _load_vocabulary_from_foundational
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
 
+# initialize logger
+logger = scg.logger
+#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
+# create folder for today's finetuning
 save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 print(f"saving to {save_dir}")
-logger = scg.logger
-#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 if device == 'cuda':
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
     torch.cuda.empty_cache()
 
+
 ############################################################
+# TODO:
 # add if to use flash-attention
 # what if fast transformer?
 # GEARS: https://github.com/snap-stanford/GEARS/tree/master
 # gears paper: https://www.nature.com/articles/s41587-023-01905-6
 
-from conf_perturb import (
-    OPT_SET, TRN_SET,
-    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
-    log_interval,
-    data_name, split, perts_to_plot
-)
-
-
 
 ######## load scGPT pre-trained model
 
 # pretrained model
-load_model = "../save/scGPT_human"
+folder_foundational_model = "../save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
     "transformer_encoder",
 ]
 
-model_dir = Path(load_model)
-model_config_file = model_dir / "args.json"
-model_file = model_dir / "best_model.pt"
-vocab_file = model_dir / "vocab.json"
+model_foundational_dir = Path(folder_foundational_model)
+model_config_file = model_foundational_dir / "args.json"
+model_file = model_foundational_dir / "best_model.pt"
+vocab_file = model_foundational_dir / "vocab.json"
 
 # model vocabulary...
-vocab_foundational = GeneVocab.from_file(vocab_file)     # 60697, gene names: A1BG etc
-for s in TRN_SET['special_tokens']:
-    if s not in vocab_foundational:
-        vocab_foundational.append_token(s)
+vocab_foundational = _load_vocabulary_from_foundational(folder_foundational_model)    # 60697, gene names: A1BG etc
 
-# model itself...
-with open(model_config_file, "r") as f:
-    model_configs = json.load(f)
-logger.info(
-    f"Resume model from {model_file}, the model args will override the "
-    f"config {model_config_file}."
+# model config parameters...
+embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
+    model_file,
+    model_config_file
 )
-
-# model configs...
-embsize = model_configs["embsize"]
-nhead = model_configs["nheads"]
-d_hid = model_configs["d_hid"]
-nlayers = model_configs["nlayers"]
-n_layers_cls = model_configs["n_layers_cls"]
 
 
 ###### Load and correct perturbation data
@@ -137,7 +127,7 @@ pretrained_dict = torch.load(model_file, map_location=device)
 #_compare_model_and_checkpoint(model, pretrained_dict)
 
 # load_param_prefixs: "encoder", "value_encoder", "transformer_encoder" - what is rthe difference?
-if (load_param_prefixs is not None) and load_model is not None:
+if (load_param_prefixs is not None) and folder_foundational_model is not None:
     # only load params that start with the prefix (why???? Noi decoder? no cls_decoder? no mvc_decoder)
     pretrained_dict = {
         k: v
@@ -150,7 +140,7 @@ if (load_param_prefixs is not None) and load_model is not None:
     model_dict = model.state_dict()
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
-elif load_model is not None:  # either param_prefixed or model is None
+elif folder_foundational_model is not None:  # either param_prefixed or model is None
     try:
         model.load_state_dict(torch.load(model_file))
         logger.info(f"Loading all model params from {model_file}")

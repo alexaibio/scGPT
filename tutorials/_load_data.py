@@ -55,8 +55,7 @@ def _harmonize_pert_dataset(pert_data, vocab_foundational):
     return gene_ids, n_genes_pert, pert_data
 
 
-def _load_vocabulary_foundational():
-    load_model = "../save/scGPT_human"
+def _load_vocabulary_from_foundational(load_model):
     model_dir = Path(load_model)
     vocab_file = model_dir / "vocab.json"
 
