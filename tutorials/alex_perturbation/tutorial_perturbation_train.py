@@ -6,14 +6,10 @@ import copy
 from pathlib import Path
 import warnings
 import torch
-import numpy as np
 import matplotlib
 from torch import nn
 from torchtext.vocab import Vocab
 from torchtext.vocab import (Vocab as VocabPybind)
-
-# GEARS: Predicting transcriptional outcomes of novel multi-gene perturbations
-from gears import PertData
 
 sys.path.insert(0, "../")
 import scgpt as scg
@@ -28,112 +24,75 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
 from tutorials._predict import plot_perturbation
-from tutorials._load_data import load_perturbation_dataset
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
+from tutorials.conf_perturb import device
+from conf_perturb import (
+    OPT_SET, TRN_SET,
+    get_foundation_model_parameters,
+    log_interval,
+    data_name, split, perts_to_plot
+)
+from tutorials._load_data import _load_vocabulary_from_foundational
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# initialize logger
+logger = scg.logger
+#scg.utils.add_file_handler(logger, save_dir / "run.log")
+
+# create folder for today's finetuning
 save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 print(f"saving to {save_dir}")
-logger = scg.logger
-#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 if device == 'cuda':
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
     torch.cuda.empty_cache()
 
+
 ############################################################
+# TODO:
 # add if to use flash-attention
 # what if fast transformer?
 # GEARS: https://github.com/snap-stanford/GEARS/tree/master
 # gears paper: https://www.nature.com/articles/s41587-023-01905-6
 
-from conf_perturb import (
-    OPT_SET, TRN_SET,
-    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
-    log_interval
-)
-
-
-#############  choose a validation dataset: adamson or norman
-logger.info(' Load finetuning perturbation dataset')
-data_name = "adamson"
-split = "simulation"
-if data_name == "norman":
-    perts_to_plot = ["SAMD1+ZBTB1"]
-elif data_name == "adamson":
-    perts_to_plot = ["KCTD16+ctrl"]
-
-
-
 
 ######## load scGPT pre-trained model
 
 # pretrained model
-load_model = "../save/scGPT_human"
+folder_foundational_model = "../save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
     "transformer_encoder",
 ]
 
-model_dir = Path(load_model)
-model_config_file = model_dir / "args.json"
-model_file = model_dir / "best_model.pt"
-vocab_file = model_dir / "vocab.json"
+model_foundational_dir = Path(folder_foundational_model)
+model_config_file = model_foundational_dir / "args.json"
+model_file = model_foundational_dir / "best_model.pt"
+vocab_file = model_foundational_dir / "vocab.json"
 
 # model vocabulary...
-vocab_foundational = GeneVocab.from_file(vocab_file)     # 60697, gene names: A1BG etc
-for s in TRN_SET['special_tokens']:
-    if s not in vocab_foundational:
-        vocab_foundational.append_token(s)
+vocab_foundational = _load_vocabulary_from_foundational(folder_foundational_model)    # 60697, gene names: A1BG etc
 
-# model itself...
-with open(model_config_file, "r") as f:
-    model_configs = json.load(f)
-logger.info(
-    f"Resume model from {model_file}, the model args will override the "
-    f"config {model_config_file}."
+# model config parameters...
+embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
+    model_file,
+    model_config_file
 )
-
-# model configs...
-embsize = model_configs["embsize"]
-nhead = model_configs["nheads"]
-d_hid = model_configs["d_hid"]
-nlayers = model_configs["nlayers"]
-n_layers_cls = model_configs["n_layers_cls"]
 
 
 ###### Load and correct perturbation data
 # original data
-pert_data = load_perturbation_dataset(data_name, split)
-
-# add a "id_in_vocab" as 1 if it is in the gene list of pre-trained foundational model and -1 otherwise
-pert_data.adata.var["id_in_vocab"] = [1 if gene in vocab_foundational else -1 for gene in pert_data.adata.var["gene_name"]]
-
-# print how much genes in pert dataset in original foundational model
-gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
-logger.info(
-    f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
-    f"in vocabulary of size {len(vocab_foundational)}."
-)
-
-genes_pert_dataset = pert_data.adata.var["gene_name"].tolist()
-
-
-vocab_foundational.set_default_index(vocab_foundational["<pad>"])
-gene_ids = np.array(
-    [vocab_foundational[gene] if gene in vocab_foundational else vocab_foundational["<pad>"] for gene in genes_pert_dataset],
-    dtype=int
-)
-n_genes = len(genes_pert_dataset)
+pert_data = _load_perturbation_dataset(data_name, split)
+gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
 
 inGENE = {
     'gene_ids': gene_ids,
-    'n_genes': n_genes
+    'n_genes': n_genes_pert
 }
 
 
@@ -164,11 +123,11 @@ model = TransformerGenerator(
 # can I use load_pretrained() here to avois flash-attention?
 pretrained_dict = torch.load(model_file, map_location=device)
 
-from tutorials._utils import _compare_model_and_checkpoint
-_compare_model_and_checkpoint(model, pretrained_dict)
+#from tutorials._utils import _compare_model_and_checkpoint
+#_compare_model_and_checkpoint(model, pretrained_dict)
 
 # load_param_prefixs: "encoder", "value_encoder", "transformer_encoder" - what is rthe difference?
-if (load_param_prefixs is not None) and load_model is not None:
+if (load_param_prefixs is not None) and folder_foundational_model is not None:
     # only load params that start with the prefix (why???? Noi decoder? no cls_decoder? no mvc_decoder)
     pretrained_dict = {
         k: v
@@ -181,7 +140,7 @@ if (load_param_prefixs is not None) and load_model is not None:
     model_dict = model.state_dict()
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
-elif load_model is not None:  # either param_prefixed or model is None
+elif folder_foundational_model is not None:  # either param_prefixed or model is None
     try:
         model.load_state_dict(torch.load(model_file))
         logger.info(f"Loading all model params from {model_file}")
@@ -276,9 +235,5 @@ for epoch in range(1, OPT_SET['epochs'] + 1):
 
 
 
-################### Predict and Plot
 
-# predict(best_model, [["FEV"], ["FEV", "SAMD11"]])
-for p in perts_to_plot:
-    plot_perturbation(best_model, pert_data, p, pool_size=300, save_file=f"{save_dir}/{p}.png")
 

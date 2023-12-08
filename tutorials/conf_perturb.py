@@ -1,9 +1,14 @@
+import sys
+sys.path.insert(0, "../")
+import scgpt as scg
+import torch
+import json
+logger = scg.logger
+
 
 ###### 1 -  Training Settings
 
-# settings for data prcocessing
-
-
+# settings for data processing
 TRN_SET = {
     'pad_token': "<pad>",
     'special_tokens': ["<pad>", "<cls>", "<eoc>"],
@@ -34,14 +39,47 @@ OPT_SET = {
     'early_stop': 5
 }
 
-# settings for the model
-embsize = 512  # embedding dimension
-d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 8  # number of heads in nn.MultiheadAttention
-n_layers_cls = 3
-dropout = 0.2  # dropout probability
-use_fast_transformer = True  # whether to use fast transformer
+
+
+def get_foundation_model_parameters(model_file, model_config_file):
+    # default settings for the model
+    embsize = 512  # embedding dimension
+    d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 8  # number of heads in nn.MultiheadAttention
+    n_layers_cls = 3
+    dropout = 0.2  # dropout probability
+    use_fast_transformer = True  # whether to use fast transformer
+
+    with open(model_config_file, "r") as f:
+        model_configs = json.load(f)
+    logger.info(
+        f"Resume model from {model_file}, the model args will override the "
+        f"config {model_config_file}."
+    )
+
+    # substitute default config parameters with loaded ones
+    logger.info(f'Default values vs loaded: \n  embsize | nhead | d_hid | nlayers | n_layers_cls')
+    logger.info(embsize, nhead, d_hid, nlayers, n_layers_cls)
+    embsize = model_configs["embsize"]
+    nhead = model_configs["nheads"]
+    d_hid = model_configs["d_hid"]
+    nlayers = model_configs["nlayers"]
+    n_layers_cls = model_configs["n_layers_cls"]
+    logger.info(embsize, nhead, d_hid, nlayers, n_layers_cls)
+
+    return embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer
+
 
 # logging
 log_interval = 250
+
+
+data_name = "adamson"
+split = "simulation"
+if data_name == "norman":
+    perts_to_plot = ["SAMD1+ZBTB1"]
+elif data_name == "adamson":
+    perts_to_plot = ["KCTD16+ctrl"]
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -127,8 +127,8 @@ adata.obs["batch_id"] = batch_id_labels
 
 adata.var["gene_name"] = adata.var.index.tolist()
 
-if config.load_model_dir is not None:
-    model_dir = Path(config.load_model_dir)
+if config.folder_foundational_model is not None:
+    model_dir = Path(config.folder_foundational_model)
     model_config_file = model_dir / "args.json"
     model_file = model_dir / "best_model.pt"
     vocab_file = model_dir / "vocab.json"
@@ -221,7 +221,7 @@ batch_ids = np.array(batch_ids)
 )
 
 # %%
-if config.load_model is None:
+if config.folder_foundational_model is None:
     vocab = Vocab(
         VocabPybind(genes + special_tokens, None)
     )  # bidirectional lookup [gene <-> int]
@@ -403,7 +403,7 @@ model = TransformerModel(
     use_fast_transformer=config.fast_transformer,
     pre_norm=config.pre_norm,
 )
-if config.load_model is not None:
+if config.folder_foundational_model is not None:
     try:
         model.load_state_dict(torch.load(model_file))
         logger.info(f"Loading all model params from {model_file}")
