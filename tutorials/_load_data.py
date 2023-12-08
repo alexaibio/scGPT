@@ -29,7 +29,7 @@ def _load_perturbation_dataset(data_name, split):
     return pert_data
 
 
-def _harmonize_pert_dataset(pert_data, vocab_foundational):
+def _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational):
     # add an "id_in_vocab" as 1 if it is in the gene list of pre-trained foundational model and -1 otherwise
     pert_data.adata.var["id_in_vocab"] = [1 if gene in vocab_foundational else -1 for gene in
                                           pert_data.adata.var["gene_name"]]
@@ -55,7 +55,7 @@ def _harmonize_pert_dataset(pert_data, vocab_foundational):
     return gene_ids, n_genes_pert, pert_data
 
 
-def _load_vocabulary_foundational():
+def _load_vocabulary_foundational_updated():
     load_model = "../save/scGPT_human"
     model_dir = Path(load_model)
     vocab_file = model_dir / "vocab.json"
