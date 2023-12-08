@@ -51,11 +51,16 @@ save_dir = Path(f"./save/fine_tune_perturb-Dec06-09-31/")
 tuned_model_file = save_dir / 'model_10.pt'
 best_tuned_model_dict = torch.load(tuned_model_file, map_location=device)
 
-best_tuned_model =
+model_dict = model.state_dict()
+model_dict.update(best_tuned_model_dict)
+model.load_state_dict(model_dict)
+model.to(device)
+
+
 
 # predict
 predict(
-    model=best_tuned_model,
+    model=model,
     pert_list=[["FEV"], ["FEV", "SAMD11"]]
 )
 
@@ -64,4 +69,4 @@ pert_data = None
 
 
 for p in perts_to_plot:
-    plot_perturbation(best_tuned_model, pert_data, p, pool_size=300, save_plot_file=f"{save_dir}/{p}.png")
+    plot_perturbation(model, pert_data, p, pool_size=300, save_plot_file=f"{save_dir}/{p}.png")

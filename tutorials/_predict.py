@@ -35,13 +35,17 @@ def predict(
     vocab_foundational = _load_vocabulary_from_foundational()
 
     pert_data = _load_perturbation_dataset(data_name, split)
-    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
+    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
 
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
+
     if pool_size is None:
         pool_size = len(ctrl_adata.obs)
+
     gene_list = pert_data.gene_names.values.tolist()
+
+    # check if genes to be perturbed are in modle's gene3 list
     for pert in pert_list:
         for i in pert:
             if i not in gene_list:
@@ -50,7 +54,8 @@ def predict(
                 )
 
     model.eval()
-    device = next(model.parameters()).device
+    device = next(model.parameters()).device   # why cpu??
+
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:

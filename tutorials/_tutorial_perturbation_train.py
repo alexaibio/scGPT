@@ -6,6 +6,7 @@ import copy
 from pathlib import Path
 import warnings
 import torch
+import numpy as np
 import matplotlib
 from torch import nn
 from torchtext.vocab import Vocab
@@ -26,26 +27,18 @@ from tutorials._train import train, evaluate
 from tutorials._predict import plot_perturbation
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset
 from tutorials.conf_perturb import device
-from conf_perturb import (
-    OPT_SET, TRN_SET,
-    get_foundation_model_parameters,
-    log_interval,
-    data_name, split, perts_to_plot
-)
-from tutorials._load_data import _load_vocabulary_from_foundational
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
 
-# initialize logger
-logger = scg.logger
-#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 # create folder for today's finetuning
 save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 print(f"saving to {save_dir}")
+logger = scg.logger
+#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 if device == 'cuda':
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
@@ -58,6 +51,14 @@ if device == 'cuda':
 # what if fast transformer?
 # GEARS: https://github.com/snap-stanford/GEARS/tree/master
 # gears paper: https://www.nature.com/articles/s41587-023-01905-6
+
+from conf_perturb import (
+    OPT_SET, TRN_SET,
+    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
+    log_interval,
+    data_name, split, perts_to_plot
+)
+
 
 
 ######## load scGPT pre-trained model
@@ -88,7 +89,7 @@ embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = ge
 ###### Load and correct perturbation data
 # original data
 pert_data = _load_perturbation_dataset(data_name, split)
-gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
+gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
 
 inGENE = {
     'gene_ids': gene_ids,
@@ -98,7 +99,7 @@ inGENE = {
 
 
 ###############################
-# 2 - Create and train scGpt
+# 2 - Create, load pre-trained and fine-tune foundational model
 
 ntokens = len(vocab_foundational)  # size of vocabulary
 model = TransformerGenerator(
@@ -126,6 +127,8 @@ pretrained_dict = torch.load(model_file, map_location=device)
 #from tutorials._utils import _compare_model_and_checkpoint
 #_compare_model_and_checkpoint(model, pretrained_dict)
 
+# filer load_param_prefixs: remove layers which are not in param prefixes
+# load that dictionary into a model
 # load_param_prefixs: "encoder", "value_encoder", "transformer_encoder" - what is rthe difference?
 if (load_param_prefixs is not None) and folder_foundational_model is not None:
     # only load params that start with the prefix (why???? Noi decoder? no cls_decoder? no mvc_decoder)
