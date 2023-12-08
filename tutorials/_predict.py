@@ -7,7 +7,7 @@ from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset, _load_vocabulary_foundational
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset, _load_vocabulary_from_foundational
 from conf_perturb import (
     OPT_SET, TRN_SET,
     embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
@@ -32,7 +32,7 @@ def predict(
             the stats of these predictions. If `None`, use all control cells.
     """
 
-    vocab_foundational = _load_vocabulary_foundational()
+    vocab_foundational = _load_vocabulary_from_foundational()
 
     pert_data = _load_perturbation_dataset(data_name, split)
     gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)

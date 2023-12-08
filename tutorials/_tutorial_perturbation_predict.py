@@ -3,18 +3,28 @@ import torch
 from scgpt.model import TransformerGenerator
 from tutorials._predict import plot_perturbation, predict
 from tutorials.conf_perturb import perts_to_plot
-from tutorials._load_data import _load_vocabulary_foundational
+from tutorials._load_data import _load_vocabulary_from_foundational
 from conf_perturb import (
     OPT_SET, TRN_SET,
-    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
+    get_foundation_model_parameters,
     log_interval,
     data_name, split, perts_to_plot
 )
 from tutorials.conf_perturb import device
 
+
 ################### Predict and Plot
-# Load model
-vocab_foundational = _load_vocabulary_foundational()
+
+# load vocabulary, model parameters and model itself
+folder_foundational_model = "../save/scGPT_human"
+model_foundational_dir = Path(folder_foundational_model)
+model_config_file = model_foundational_dir / "args.json"
+
+vocab_foundational = _load_vocabulary_from_foundational(folder_foundational_model)
+embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
+    folder_foundational_model,
+    model_config_file
+)
 
 ntokens = len(vocab_foundational)  # size of vocabulary
 model = TransformerGenerator(
@@ -36,7 +46,7 @@ model = TransformerGenerator(
     use_fast_transformer=use_fast_transformer,
 )
 
-# load model dictionary
+# load fine tuned model
 save_dir = Path(f"./save/fine_tune_perturb-Dec06-09-31/")
 tuned_model_file = save_dir / 'model_10.pt'
 best_tuned_model_dict = torch.load(tuned_model_file, map_location=device)
