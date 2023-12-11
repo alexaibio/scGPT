@@ -1,5 +1,3 @@
-import json
-import os
 import sys
 import time
 import copy
@@ -24,15 +22,13 @@ from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
-from tutorials._predict import plot_perturbation
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational, _load_vocabulary_from_foundational
 from tutorials.conf_perturb import device
 from conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
-    #embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
     log_interval,
-    data_name, split, perts_to_plot
+    data_name, split
 )
 from gears import PertData
 
@@ -40,13 +36,14 @@ matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
 
+logger = scg.logger
+#scg.utils.add_file_handler(logger, save_dir / "run.log")
 
 # create folder for today's fine-tuning
 run_save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
 run_save_dir.mkdir(parents=True, exist_ok=True)
 print(f"saving to {run_save_dir}")
-logger = scg.logger
-#scg.utils.add_file_handler(logger, save_dir / "run.log")
+
 
 if device == 'cuda':
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
