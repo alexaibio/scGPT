@@ -4,7 +4,7 @@ from pathlib import Path
 import scgpt as scg
 from conf_perturb import (
     OPT_SET, TRN_SET,
-    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
+    get_foundation_model_parameters,
     log_interval
 )
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
@@ -13,16 +13,15 @@ from gears import PertData
 logger = scg.logger
 
 
-def _load_perturbation_dataset(data_name, split):
+def _load_perturbation_dataset(data_name: str, split: str) -> PertData:
     # log running date and current git commit
     logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
     pert_data = PertData("./data")  # downloading, from gears import PertData
 
-    # 65 899 (observations) x 5060 (genes)
-    # each observation has attributes: condition (ctrl, CREB1+ctrl, ZNF326+ctrl... ), cell type (K562), observation name.   pert_data.adata.obs
-    # each gene (with gene names)
-    pert_data.load(
-        data_name=data_name)  # 65 899 (obs_names=AAACATACACCGAT-1, cell barcode) x 5060 (var_names=ENSG00000228463 ...)
+    # observations 65 899 (obs_names=AAACATACACCGAT-1, cell barcode) x tokens 5060 (var_names=ENSG00000228463 ...)
+    # each observation has attributes:
+    #   condition (ctrl, CREB1+ctrl, ZNF326+ctrl... ), cell type (K562), observation name.   pert_data.adata.obs
+    pert_data.load(data_name=data_name)
     pert_data.prepare_split(split=split, seed=1)
     pert_data.get_dataloader(batch_size=OPT_SET['batch_size'], test_batch_size=OPT_SET['eval_batch_size'])
 
@@ -55,9 +54,7 @@ def _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational):
     return gene_ids, n_genes_pert, pert_data
 
 
-def _load_vocabulary_from_foundational(load_model):
-    model_dir = Path(load_model)
-    vocab_file = model_dir / "vocab.json"
+def _load_vocabulary_from_foundational(vocab_file: Path) -> GeneVocab:
 
     # model vocabulary...
     vocab_foundational = GeneVocab.from_file(vocab_file)  # 60697, gene names: A1BG etc
