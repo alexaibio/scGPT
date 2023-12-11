@@ -31,9 +31,9 @@ TRN_SET = {
 
 # settings for optimizer
 OPT_SET = {
-    'lr': 5e-5,             # or 1e-4
-    'batch_size': 28,       # was 64
-    'eval_batch_size': 28,   # was 64
+    'lr': 6e-5,             # or 1e-4
+    'batch_size': 30,       # was 64
+    'eval_batch_size': 30,   # was 64
     'epochs': 10,
     'schedule_interval': 1,
     'early_stop': 5
