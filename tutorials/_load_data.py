@@ -2,11 +2,7 @@ import time
 import numpy as np
 from pathlib import Path
 import scgpt as scg
-from conf_perturb import (
-    OPT_SET, TRN_SET,
-    get_foundation_model_parameters,
-    log_interval
-)
+from conf_perturb import OPT_SET, TRN_SET
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 # GEARS: Predicting transcriptional outcomes of novel multi-gene perturbations
 from gears import PertData
