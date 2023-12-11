@@ -66,15 +66,16 @@ model.to(device)
 
 
 # do  a test prediction of expression after perturbation
-#results_pred = predict(
-#    model=model,
-#    vocab_foundational=vocab_foundational,
-#    pert_list=[["FEV"], ["FEV", "SAMD11"]]
-#)
+logger.info(f'------->  Predict a perturbation for :  {[["FEV"], ["FEV", "SAMD11"]]}')
+results_pred = predict(
+    model=model,
+    vocab_foundational=vocab_foundational,
+    pert_list=[["FEV"], ["FEV", "SAMD11"]]
+)
 
 
 # sanity check of which perturbation we need to do
-logger.info(f' Do a perturbation for :  {perts_to_plot}')
+logger.info(f' -----> Plot a perturbation for :  {perts_to_plot}')
 
 # plot
 for pert in perts_to_plot:
