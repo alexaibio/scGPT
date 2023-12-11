@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import torch
 from torch import nn
@@ -118,13 +120,25 @@ def plot_perturbation(
 
     # do PREDICTION
     if query.split("+")[1] == "ctrl":
-        pred = predict(model, pert_data, [[query.split("+")[0]]], pool_size=pool_size)
+        logging.info('... Control is present')
+        pred = predict(
+            model=model,
+            vocab_foundational=vocab_foundational,
+            pert_list=[[query.split("+")[0]]],
+            pool_size=pool_size
+        )
         pred = pred[query.split("+")[0]][de_idx]
     else:
-        pred = predict(model, pert_data, [query.split("+")], pool_size=pool_size)
+        logging.info('... No control')
+        pred = predict(
+            model=model,
+            vocab_foundational=vocab_foundational,
+            pert_list=[query.split("+")],
+            pool_size=pool_size
+        )
         pred = pred["_".join(query.split("+"))][de_idx]
-    ctrl_means = adata[adata.obs["condition"] == "ctrl"].to_df().mean()[de_idx].values
 
+    ctrl_means = adata[adata.obs["condition"] == "ctrl"].to_df().mean()[de_idx].values
     pred = pred - ctrl_means
     truth = truth - ctrl_means
 
