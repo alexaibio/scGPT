@@ -43,12 +43,12 @@ OPT_SET = {
 
 def get_foundation_model_parameters(model_file, model_config_file):
     # default settings for the model
-    embsize = 512  # embedding dimension
-    d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 8  # number of heads in nn.MultiheadAttention
+    embsize = 512   # embedding dimension
+    d_hid = 512     # dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 12    # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 8       # number of heads in nn.MultiheadAttention
     n_layers_cls = 3
-    dropout = 0.2  # dropout probability
+    dropout = 0.2   # dropout probability
     use_fast_transformer = True  # whether to use fast transformer
 
     with open(model_config_file, "r") as f:
@@ -60,13 +60,15 @@ def get_foundation_model_parameters(model_file, model_config_file):
 
     # substitute default config parameters with loaded ones
     logger.info(f'Default values vs loaded: \n  embsize | nhead | d_hid | nlayers | n_layers_cls')
-    logger.info(embsize, nhead, d_hid, nlayers, n_layers_cls)
+    logger.info(f' {embsize}, {nhead}, {d_hid}, {nlayers}, {n_layers_cls}')
+
     embsize = model_configs["embsize"]
     nhead = model_configs["nheads"]
     d_hid = model_configs["d_hid"]
     nlayers = model_configs["nlayers"]
     n_layers_cls = model_configs["n_layers_cls"]
-    logger.info(embsize, nhead, d_hid, nlayers, n_layers_cls)
+
+    logger.info(f' {embsize}, {nhead}, {d_hid}, {nlayers}, {n_layers_cls}')
 
     return embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer
 

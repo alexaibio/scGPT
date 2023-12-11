@@ -11,20 +11,27 @@ from conf_perturb import (
     data_name, split, perts_to_plot
 )
 from tutorials.conf_perturb import device
+from scgpt.tokenizer.gene_tokenizer import GeneVocab
 
 
 ################### Predict and Plot
 
 # load vocabulary, model parameters and model itself
-folder_foundational_model = "../save/scGPT_human"
-model_foundational_dir = Path(folder_foundational_model)
+foundational_model_path = "../save/scGPT_human"
+model_foundational_dir = Path(foundational_model_path)
 model_config_file = model_foundational_dir / "args.json"
+found_model_file = model_foundational_dir / "best_model.pt"
+found_vocab_file = model_foundational_dir / "vocab.json"
 
-vocab_foundational = _load_vocabulary_from_foundational(folder_foundational_model)
+# model vocabulary:  60697, gene names: A1BG etc
+vocab_foundational: GeneVocab = _load_vocabulary_from_foundational(found_vocab_file)
+
+# model config parameters...
 embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
-    folder_foundational_model,
+    found_model_file,
     model_config_file
 )
+
 
 ntokens = len(vocab_foundational)  # size of vocabulary
 model = TransformerGenerator(
@@ -46,9 +53,9 @@ model = TransformerGenerator(
     use_fast_transformer=use_fast_transformer,
 )
 
-# load fine tuned model
-save_dir = Path(f"./save/fine_tune_perturb-Dec06-09-31/")
-tuned_model_file = save_dir / 'model_10.pt'
+############### load fine tuned model - not fundamental!
+run_save_dir = Path(f"./save/fine_tune_perturb-Dec06-09-31/")
+tuned_model_file = run_save_dir / 'model_10.pt'
 best_tuned_model_dict = torch.load(tuned_model_file, map_location=device)
 
 model_dict = model.state_dict()
@@ -58,15 +65,20 @@ model.to(device)
 
 
 
-# predict
-predict(
+# predict expression after perturbation
+results_pred = predict(
     model=model,
+    vocab_foundational=vocab_foundational,
     pert_list=[["FEV"], ["FEV", "SAMD11"]]
 )
 
+
 # plot
-pert_data = None
-
-
-for p in perts_to_plot:
-    plot_perturbation(model, pert_data, p, pool_size=300, save_plot_file=f"{save_dir}/{p}.png")
+for pert in perts_to_plot:
+    plot_perturbation(
+        model=model,
+        vocab_foundational=vocab_foundational,
+        query=pert,
+        pool_size=300,
+        save_plot_file=f"{run_save_dir}/{pert}.png"
+    )
