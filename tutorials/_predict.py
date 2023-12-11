@@ -115,6 +115,8 @@ def plot_perturbation(
     ]
 
     truth = adata[adata.obs.condition == query].X.toarray()[:, de_idx]
+
+    # do PREDICTION
     if query.split("+")[1] == "ctrl":
         pred = predict(model, pert_data, [[query.split("+")[0]]], pool_size=pool_size)
         pred = pred[query.split("+")[0]][de_idx]

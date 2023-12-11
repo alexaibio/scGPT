@@ -1,10 +1,10 @@
 from pathlib import Path
 import torch
+import scgpt as scg
 from scgpt.model import TransformerGenerator
 from tutorials._predict import plot_perturbation, predict
-from tutorials.conf_perturb import perts_to_plot
 from tutorials._load_data import _load_vocabulary_from_foundational
-from conf_perturb import (
+from tutorials.conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
     log_interval,
@@ -12,6 +12,7 @@ from conf_perturb import (
 )
 from tutorials.conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
+logger = scg.logger
 
 
 ################### Predict and Plot
@@ -64,13 +65,16 @@ model.load_state_dict(model_dict)
 model.to(device)
 
 
-# predict expression after perturbation
-results_pred = predict(
-    model=model,
-    vocab_foundational=vocab_foundational,
-    pert_list=[["FEV"], ["FEV", "SAMD11"]]
-)
+# do  a test prediction of expression after perturbation
+#results_pred = predict(
+#    model=model,
+#    vocab_foundational=vocab_foundational,
+#    pert_list=[["FEV"], ["FEV", "SAMD11"]]
+#)
 
+
+# sanity check of which perturbation we need to do
+logger.info(f' Do a perturbation for :  {perts_to_plot}')
 
 # plot
 for pert in perts_to_plot:
