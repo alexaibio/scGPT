@@ -86,3 +86,5 @@ for pert in perts_to_plot:
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
 
+logger.info(' END of prediction')
+
