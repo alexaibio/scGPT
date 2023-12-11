@@ -64,7 +64,6 @@ model.load_state_dict(model_dict)
 model.to(device)
 
 
-
 # predict expression after perturbation
 results_pred = predict(
     model=model,
@@ -82,3 +81,4 @@ for pert in perts_to_plot:
         pool_size=300,
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
+

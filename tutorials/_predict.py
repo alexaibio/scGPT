@@ -13,7 +13,6 @@ from conf_perturb import (
 )
 from gears import PertData
 import seaborn as sns
-import numpy as np
 import matplotlib.pyplot as plt
 
 sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5)
