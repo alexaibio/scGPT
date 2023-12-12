@@ -55,8 +55,8 @@ model = TransformerGenerator(
 )
 
 ############### load fine tuned model - not fundamental!
-run_save_dir = Path(f"./save/fine_tune_perturb-Dec06-09-31/")
-tuned_model_file = run_save_dir / 'model_9.pt'
+run_save_dir = Path(f"./save/fine_tune_perturb-Dec11-20-03/")
+tuned_model_file = run_save_dir / 'model_epoch_10_val_loss_0.1331.pt'
 best_tuned_model_dict = torch.load(tuned_model_file, map_location=device)
 
 model_dict = model.state_dict()
@@ -71,7 +71,7 @@ results_pred = predict(
     model=model,
     vocab_foundational=vocab_foundational,
     pert_list=[["FEV"], ["FEV", "SAMD11"]],
-    pool_size=500   # remove to see all
+    pool_size=700   # remove to see all
 )
 # dict of FEB: ndarray[5060,], / FEV_SAMD11: (5060,)
 
@@ -84,7 +84,7 @@ for pert in perts_to_plot:
         model=model,
         vocab_foundational=vocab_foundational,
         query=pert,
-        pool_size=500,
+        pool_size=700,
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
 
