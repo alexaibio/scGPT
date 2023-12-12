@@ -60,8 +60,8 @@ def get_foundation_model_parameters(model_file, model_config_file):
 
     # substitute default config parameters with loaded ones
     logger.info(f'Default values vs loaded:')
-    logger.info(' before:     embsize  |  nhead  |  d_hid  |  nlayers  |  n_layers_cls')
-    logger.info(f' {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')
+    logger.info('            embsize  |  nhead  |  d_hid  |  nlayers  |  n_layers_cls')
+    logger.info(f' before:   {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')
 
     embsize = model_configs["embsize"]
     nhead = model_configs["nheads"]
@@ -69,7 +69,7 @@ def get_foundation_model_parameters(model_file, model_config_file):
     nlayers = model_configs["nlayers"]
     n_layers_cls = model_configs["n_layers_cls"]
 
-    logger.info(f' after:     {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')
+    logger.info(f' after:    {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')
 
     return embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer
 
