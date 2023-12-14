@@ -9,7 +9,7 @@ from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational, _load_vocabulary_from_foundational
-from conf_perturb import (
+from _conf_perturb import (
     OPT_SET, TRN_SET,
     data_name, split, perts_to_plot
 )

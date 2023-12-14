@@ -18,7 +18,15 @@ set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: dict, inGENE, OPTM, log_interval, epoch) -> None:
+def train(
+        model: nn.Module,
+        train_loader: torch.utils.data.DataLoader,
+        TRN_SET: dict, # pad token ..., MLM / CLS ..., cell_emb_style
+        inGENE,   # input gene vector: gene_id, ngenes
+        OPTM,  # objective function: 'criterion': masked_mse_loss, etc
+        log_interval,   # 250
+        epoch           # number of epoch
+) -> None:
     """
     Train the model for one epoch.
     """
@@ -28,8 +36,10 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
     total_loss, total_mse = 0.0, 0.0
     start_time = time.time()
 
-    # SANITY: check if / next(iter(train_loader)) / has a dimension of 2? gears must be 0.0.3 version
+    # uncomment for  SANITY: check if / next(iter(train_loader)) / has a dimension of 2? gears must be 0.0.3 version
+
     num_batches = len(train_loader)
+
     for batch, batch_data in enumerate(train_loader):
         batch_size = len(batch_data.y)
         batch_data.to(device)

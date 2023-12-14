@@ -23,8 +23,8 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational, _load_vocabulary_from_foundational
-from tutorials.conf_perturb import device
-from conf_perturb import (
+from tutorials._conf_perturb import device
+from _conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
     log_interval,
