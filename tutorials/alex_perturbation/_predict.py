@@ -1,5 +1,6 @@
+import logging
+
 import numpy as np
-from pathlib import Path
 import torch
 from torch import nn
 from typing import Iterable, List, Tuple, Dict, Union, Optional
@@ -7,19 +8,23 @@ from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset, _load_vocabulary_from_foundational
-from conf_perturb import (
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational, _load_vocabulary_from_foundational
+from _conf_perturb import (
     OPT_SET, TRN_SET,
-    embsize, d_hid, nlayers, nhead, n_layers_cls, dropout, use_fast_transformer,
-    log_interval,
     data_name, split, perts_to_plot
 )
+from gears import PertData
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5)
 
 
 def predict(
-        model: TransformerGenerator,
-        pert_list: List[str],
-        pool_size: Optional[int] = None
+    model: TransformerGenerator,
+    vocab_foundational: GeneVocab,
+    pert_list: List[str],
+    pool_size: Optional[int] = None
 ) -> Dict:
     """
     Predict the gene expression values for the given perturbations.
@@ -32,16 +37,23 @@ def predict(
             the stats of these predictions. If `None`, use all control cells.
     """
 
-    vocab_foundational = _load_vocabulary_from_foundational()
+    #vocab_foundational = _load_vocabulary_from_foundational(found_vocab_file)
 
     pert_data = _load_perturbation_dataset(data_name, split)
-    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset(pert_data, vocab_foundational)
+    gene_ids: np.ndarray
+    n_genes_pert: int
+    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
 
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
+
+    # For each perturbation, use this number of cells in the control and predict their perturbation results.
     if pool_size is None:
         pool_size = len(ctrl_adata.obs)
+
     gene_list = pert_data.gene_names.values.tolist()
+
+    # check if genes to be perturbed are in model's gene list
     for pert in pert_list:
         for i in pert:
             if i not in gene_list:
@@ -51,9 +63,12 @@ def predict(
 
     model.eval()
     device = next(model.parameters()).device
+
+    # run prediction
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:
+            print(f'... running prediction for genes {pert}')
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert, ctrl_adata, gene_list, device, num_samples=pool_size
             )
@@ -74,20 +89,18 @@ def predict(
 
 
 
-
 def plot_perturbation(
         model: nn.Module,
-        pert_data,
+        vocab_foundational: GeneVocab,
         query: str,
         save_plot_file: str = None,
         pool_size: int = None,
+) -> None:
 
-):
-    import seaborn as sns
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5)
+    pert_data: PertData = _load_perturbation_dataset(data_name, split)
+    gene_ids: np.ndarray
+    n_genes_pert: int
+    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
 
     adata = pert_data.adata
     gene2idx = pert_data.node_map
@@ -104,14 +117,28 @@ def plot_perturbation(
     ]
 
     truth = adata[adata.obs.condition == query].X.toarray()[:, de_idx]
+
+    # do PREDICTION
     if query.split("+")[1] == "ctrl":
-        pred = predict(model, pert_data, [[query.split("+")[0]]], pool_size=pool_size)
+        logging.info('... Control is present')
+        pred = predict(
+            model=model,
+            vocab_foundational=vocab_foundational,
+            pert_list=[[query.split("+")[0]]],
+            pool_size=pool_size
+        )
         pred = pred[query.split("+")[0]][de_idx]
     else:
-        pred = predict(model, pert_data, [query.split("+")], pool_size=pool_size)
+        logging.info('... No control')
+        pred = predict(
+            model=model,
+            vocab_foundational=vocab_foundational,
+            pert_list=[query.split("+")],
+            pool_size=pool_size
+        )
         pred = pred["_".join(query.split("+"))][de_idx]
-    ctrl_means = adata[adata.obs["condition"] == "ctrl"].to_df().mean()[de_idx].values
 
+    ctrl_means = adata[adata.obs["condition"] == "ctrl"].to_df().mean()[de_idx].values
     pred = pred - ctrl_means
     truth = truth - ctrl_means
 

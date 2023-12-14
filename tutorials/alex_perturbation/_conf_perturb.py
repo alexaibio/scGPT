@@ -1,53 +1,47 @@
 import sys
-sys.path.insert(0, "../../")
+sys.path.insert(0, "../")
 import scgpt as scg
 import torch
 import json
-from pathlib import Path
-
 logger = scg.logger
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-###### 1 -  Training Settingы
+###### 1 -  Training Settings
 
 # settings for data processing
-INPT_PAR = {
+TRN_SET = {
     'pad_token': "<pad>",
-    'special_tokens': ["<pad>", "<cls>", "<eoc>"],  # <cls> - for aggregating all genes into a cell representation ??
+    'special_tokens': ["<pad>", "<cls>", "<eoc>"],
     'pad_value': 0,             # for padding values
     'pert_pad_id': 2,
     'n_hvg': 0,                 # number of highly variable genes
-    # To speed up the training, we restrict the input to only genes with non-zero expression for each input cell
     'include_zero_gene': "all",  # include zero expr genes in training input, "all", "batch-wise", "row-wise",False
-    'max_seq_len': 1536,  # what is that?
+    'max_seq_len': 1536,
     # settings for training
-    'MLM': True,        # whether to use Masked Language Modeling, currently it is always on.
+    'MLM': True,        # whether to use masked language modeling, currently it is always on.
     'CLS': False,       # celltype classification objective
     'CCE': False,       # Contrastive cell embedding objective
     'MVC': False,       # Masked value prediction for cell embedding
-    'ECS': False,       # Elastic cell similarity objective
+    'ECS': False,  # Elastic cell similarity objective
     'cell_emb_style': "cls",
     'mvc_decoder_style': "inner product, detach",
-    'amp': True         # Automatic Mixed Precision (AMP): faster training times and reduced memory usage
+    'amp': True
 }
 
 
 # settings for optimizer
-TRN_PAR = {
-    'lr': 2e-5,             # or 1e-4
+OPT_SET = {
+    'lr': 6e-5,             # or 1e-4
     'batch_size': 30,       # was 64
     'eval_batch_size': 30,   # was 64
-    'epochs': 12,
+    'epochs': 10,
     'schedule_interval': 1,
     'early_stop': 5
 }
 
-# fine tuning logging interval
-log_interval = 250
 
 
-def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
+def get_foundation_model_parameters(model_file, model_config_file):
     # default settings for the model
     embsize = 512   # embedding dimension
     d_hid = 512     # dimension of the feedforward network model in nn.TransformerEncoder
@@ -59,12 +53,15 @@ def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
 
     with open(model_config_file, "r") as f:
         model_configs = json.load(f)
-    logger.info(f"Resume model from {model_file}, the model args will override the config {model_config_file}.")
+    logger.info(
+        f"Resume model from {model_file}, the model args will override the "
+        f"config {model_config_file}."
+    )
 
-    # substitute default parameters above with those from loaded foundational model
+    # substitute default config parameters with loaded ones
     logger.info(f'Default values vs loaded:')
-    logger.info('         embsize  |  nhead  |  d_hid  |  nlayers  |  n_layers_cls')
-    logger.info(f' before:   {embsize},       {nhead},       {d_hid},        {nlayers},     {n_layers_cls}')
+    logger.info('            embsize  |  nhead  |  d_hid  |  nlayers  |  n_layers_cls')
+    logger.info(f' before:   {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')
 
     embsize = model_configs["embsize"]
     nhead = model_configs["nheads"]
@@ -72,17 +69,20 @@ def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
     nlayers = model_configs["nlayers"]
     n_layers_cls = model_configs["n_layers_cls"]
 
-    logger.info(f' after:    {embsize},       {nhead},      {d_hid},        {nlayers},     {n_layers_cls}')
+    logger.info(f' after:    {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')
 
     return embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer
 
 
+# logging
+log_interval = 250
 
-# set a perturbation fine-tuning dataset and default gene to plot test perturbation
-perturbation_data_source = "adamson"
+
+data_name = "adamson"
 split = "simulation"
-if perturbation_data_source == "norman":
+if data_name == "norman":
     perts_to_plot = ["SAMD1+ZBTB1"]
-elif perturbation_data_source == "adamson":
+elif data_name == "adamson":
     perts_to_plot = ["KCTD16+ctrl"]
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

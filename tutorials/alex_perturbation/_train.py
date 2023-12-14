@@ -1,5 +1,6 @@
 import sys
 import time
+import numpy as np
 import warnings
 import torch
 from torch import nn
@@ -17,7 +18,15 @@ set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: dict, inGENE, OPTM, log_interval, epoch) -> None:
+def train(
+        model: nn.Module,
+        train_loader: torch.utils.data.DataLoader,
+        TRN_SET: dict, # pad token ..., MLM / CLS ..., cell_emb_style
+        inGENE,   # input gene vector: gene_id, ngenes
+        OPTM,  # objective function: 'criterion': masked_mse_loss, etc
+        log_interval,   # 250
+        epoch           # number of epoch
+) -> None:
     """
     Train the model for one epoch.
     """
@@ -27,14 +36,20 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
     total_loss, total_mse = 0.0, 0.0
     start_time = time.time()
 
+    # uncomment for  SANITY: check if / next(iter(train_loader)) / has a dimension of 2? gears must be 0.0.3 version
+
     num_batches = len(train_loader)
+
     for batch, batch_data in enumerate(train_loader):
         batch_size = len(batch_data.y)
         batch_data.to(device)
         x: torch.Tensor = batch_data.x  # (batch_size * n_genes, 2)
 
+        # solving issue with x[,1] - https://github.com/bowang-lab/scGPT/issues/101
+        # TODO: understand this perturbation data
         ori_gene_values = x[:, 0].view(batch_size, inGENE['n_genes'])
         pert_flags = x[:, 1].long().view(batch_size, inGENE['n_genes'])
+
         target_gene_values = batch_data.y  # (batch_size, n_genes)
 
         if TRN_SET['include_zero_gene'] in ["all", "batch-wise"]:
@@ -110,8 +125,8 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader, TRN_SET: 
             # ppl = math.exp(cur_loss)
             logger.info(
                 f"| epoch {epoch:3d} | {batch:3d}/{num_batches:3d} batches | "
-                f"lr {lr:05.4f} | ms/batch {ms_per_batch:5.2f} | "
-                f"loss {cur_loss:5.2f} | mse {cur_mse:5.2f} |"
+                f"lr {lr:06.5f} | ms/batch {ms_per_batch:5.2f} | "
+                f"loss {cur_loss:6.3f} | mse {cur_mse:6.3f} |"
             )
             total_loss = 0
             total_mse = 0

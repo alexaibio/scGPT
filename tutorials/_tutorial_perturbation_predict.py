@@ -4,13 +4,13 @@ import scgpt as scg
 from scgpt.model import TransformerGenerator
 from tutorials._predict import plot_perturbation, predict
 from tutorials._load_data import _load_vocabulary_from_foundational
-from tutorials.conf_perturb import (
+from tutorials._conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
     log_interval,
     data_name, split, perts_to_plot
 )
-from tutorials.conf_perturb import device
+from tutorials._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 logger = scg.logger
 
