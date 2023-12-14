@@ -61,7 +61,7 @@ if device == 'cuda':
 
 ######## load scGPT pre-trained model
 
-# pretrained model
+# use pretrained model - all HUMAN or BRAIN or BLOOD
 foundational_model_path = "../save/scGPT_human"
 load_param_prefixs = [
     "encoder",
@@ -78,6 +78,7 @@ found_vocab_file = model_foundational_dir / "vocab.json"
 vocab_foundational: GeneVocab = _load_vocabulary_from_foundational(found_vocab_file)
 
 # model config parameters...
+# embsize=512, nhead=8, d_hid=512, nlayers=12, n_layers_cls=3
 embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
     found_model_file,
     model_config_file
@@ -85,8 +86,11 @@ embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = ge
 
 
 ###### Load and correct perturbation data
-# in foundational model set token to <pad> if it is not in perturbation gene tokens
+# pert_data.adata = 68603(observations) x 5060 (genes)
+# why perturbations are like CREB1+ctrl - is it control should be separated?
 pert_data: PertData = _load_perturbation_dataset(data_name, split)
+
+# in foundational model set token to <pad> if it is not in perturbation gene tokens
 gene_ids: np.ndarray
 n_genes_pert: int
 gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
@@ -188,6 +192,7 @@ patience = 0
 for epoch in range(1, OPT_SET['epochs'] + 1):
     epoch_start_time = time.time()
 
+    # WHERE did they sum up input embeddings? inside transformer?
     # get adamson dataset for fine-tuning
     train_loader = pert_data.dataloader["train_loader"]
     valid_loader = pert_data.dataloader["val_loader"]
