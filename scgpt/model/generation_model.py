@@ -188,17 +188,12 @@ class TransformerGenerator(nn.Module):
         Args:
             src (:obj:`Tensor`): token ids, shape [batch_size, seq_len]
             values (:obj:`Tensor`): token values, shape [batch_size, seq_len]
-            src_key_padding_mask (:obj:`Tensor`): mask for src, shape [batch_size,
-                seq_len]
-            CLS (:obj:`bool`): if True, return the celltype classification objective
-                (CLS) output
-            CCE (:obj:`bool`): if True, return the contrastive cell embedding objective
-                (CCE) output
-            MVC (:obj:`bool`): if True, return the masked value prediction for cell
-                embedding MVC output
-            ECS (:obj:`bool`): if True, return the elastic cell similarity objective
-                (ECS) output.
-
+            src_key_padding_mask (:obj:`Tensor`): mask for src, shape [batch_size, seq_len]
+            CLS (:obj:`bool`): if True, return the celltype classification objective (CLS) output
+            CCE (:obj:`bool`): if True, return the contrastive cell embedding objective (CCE) output
+            MVC (:obj:`bool`): if True, return the masked value prediction for cell embedding MVC output
+            ECS (:obj:`bool`): if True, return the elastic cell similarity objective (ECS) output.
+            MLM - ???
         Returns:
             dict of output Tensors.
         """
@@ -209,6 +204,7 @@ class TransformerGenerator(nn.Module):
         transformer_output = self._encode(
             src, values, input_pert_flags, src_key_padding_mask
         )
+
         output = {}
         mlm_output = self.decoder(transformer_output)
         if self.explicit_zero_prob and do_sample:
@@ -222,6 +218,7 @@ class TransformerGenerator(nn.Module):
         cell_emb = self._get_cell_emb_from_layer(transformer_output, values)
         if CLS:
             output["cls_output"] = self.cls_decoder(cell_emb)  # (batch, n_cls)
+
         if MVC:
             mvc_output = self.mvc_decoder(
                 cell_emb,
@@ -234,6 +231,7 @@ class TransformerGenerator(nn.Module):
                 output["mvc_output"] = mvc_output["pred"]  # (batch, seq_len)
             if self.explicit_zero_prob:
                 output["mvc_zero_probs"] = mvc_output["zero_probs"]
+
         if ECS:
             # Here using customized cosine similarity instead of F.cosine_similarity
             # to avoid the pytorch issue of similarity larger than 1.0, pytorch # 78064
