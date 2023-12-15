@@ -11,7 +11,7 @@ logger = scg.logger
 # settings for data processing
 TRN_SET = {
     'pad_token': "<pad>",
-    'special_tokens': ["<pad>", "<cls>", "<eoc>"],
+    'special_tokens': ["<pad>", "<cls>", "<eoc>"],  # <cls> - for aggregating all genes into a cell representation ??
     'pad_value': 0,             # for padding values
     'pert_pad_id': 2,
     'n_hvg': 0,                 # number of highly variable genes
