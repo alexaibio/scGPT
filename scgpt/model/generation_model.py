@@ -58,8 +58,10 @@ class TransformerGenerator(nn.Module):
         self.cell_emb_style = cell_emb_style
         self.explicit_zero_prob = explicit_zero_prob
         self.norm_scheme = "pre" if pre_norm else "post"
+
         if cell_emb_style not in ["cls", "avg-pool", "w-pool"]:
             raise ValueError(f"Unknown cell_emb_style: {cell_emb_style}")
+
         if use_fast_transformer:
             try:
                 from flash_attn.flash_attention import FlashMHA
@@ -73,6 +75,7 @@ class TransformerGenerator(nn.Module):
                     "Installing flash-attn is highly recommended."
                 )
                 use_fast_transformer = False
+
         self.use_fast_transformer = use_fast_transformer
 
         self.encoder = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])
@@ -158,6 +161,9 @@ class TransformerGenerator(nn.Module):
         Returns:
             :obj:`Tensor`: shape (batch, embsize)
         """
+
+        # In the context of transformers, pooling operations are often applied to the output of the self-attention mechanism.
+        # is that summing up all attention vectors before linear layer?
         if self.cell_emb_style == "cls":
             cell_emb = layer_output[:, 0, :]  # (batch, embsize)
         elif self.cell_emb_style == "avg-pool":
@@ -411,6 +417,7 @@ class ClsDecoder(nn.Module):
         activation: callable = nn.ReLU,
     ):
         super().__init__()
+
         # module list
         self._decoder = nn.ModuleList()
         for i in range(nlayers - 1):
