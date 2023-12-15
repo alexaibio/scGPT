@@ -164,6 +164,9 @@ class TransformerGenerator(nn.Module):
 
         # In the context of transformers, pooling operations are often applied to the output of the self-attention mechanism.
         # is that summing up all attention vectors before linear layer?
+
+        # In this study, we opt to employ a special token < cls > for the cell representation,
+        # enabling the model to learn the pooling operation within transformer blocks.?????
         if self.cell_emb_style == "cls":
             cell_emb = layer_output[:, 0, :]  # (batch, embsize)
         elif self.cell_emb_style == "avg-pool":
