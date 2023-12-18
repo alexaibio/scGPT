@@ -15,14 +15,15 @@ TRN_SET = {
     'pad_value': 0,             # for padding values
     'pert_pad_id': 2,
     'n_hvg': 0,                 # number of highly variable genes
+    # To speed up the training, we restrict the input to only genes with non-zero expression for each input cell
     'include_zero_gene': "all",  # include zero expr genes in training input, "all", "batch-wise", "row-wise",False
     'max_seq_len': 1536,  # what is that?
     # settings for training
-    'MLM': True,        # whether to use masked language modeling, currently it is always on.
+    'MLM': True,        # whether to use Masked Language Modeling, currently it is always on.
     'CLS': False,       # celltype classification objective
     'CCE': False,       # Contrastive cell embedding objective
     'MVC': False,       # Masked value prediction for cell embedding
-    'ECS': False,  # Elastic cell similarity objective
+    'ECS': False,       # Elastic cell similarity objective
     'cell_emb_style': "cls",
     'mvc_decoder_style': "inner product, detach",
     'amp': True
