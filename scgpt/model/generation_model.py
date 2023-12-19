@@ -111,6 +111,7 @@ class TransformerGenerator(nn.Module):
             d_model,
             explicit_zero_prob=explicit_zero_prob,
         )
+
         self.cls_decoder = ClsDecoder(d_model, n_cls, nlayers=nlayers_cls)
         if do_mvc:
             self.mvc_decoder = MVCDecoder(
@@ -135,6 +136,7 @@ class TransformerGenerator(nn.Module):
         input_pert_flags,
         src_key_padding_mask: Tensor,
     ) -> Tensor:
+
         src = self.encoder(src)  # (batch, seq_len, embsize)
         self.cur_gene_token_embs = src
         values = self.value_encoder(values)  # (batch, seq_len, embsize)
@@ -202,7 +204,7 @@ class TransformerGenerator(nn.Module):
             CCE (:obj:`bool`): if True, return the contrastive cell embedding objective (CCE) output
             MVC (:obj:`bool`): if True, return the masked value prediction for cell embedding MVC output
             ECS (:obj:`bool`): if True, return the elastic cell similarity objective (ECS) output.
-            MLM - ???
+            MLM - Masked Language Modeling, default = True
         Returns:
             dict of output Tensors.
         """
@@ -210,12 +212,16 @@ class TransformerGenerator(nn.Module):
             do_sample = True
             logger.warning("Auto set do_sample to True when model is in eval mode.")
 
+        # STEP 1: ENCODE -> Embedding + Norm
         transformer_output = self._encode(
             src, values, input_pert_flags, src_key_padding_mask
         )
 
+        # STEP 2: DECODE -> ExprDecoder: Linear/RelU/Linear/relu/Linear
         output = {}
         mlm_output = self.decoder(transformer_output)
+
+        # TODO: WTF that?
         if self.explicit_zero_prob and do_sample:
             bernoulli = Bernoulli(probs=mlm_output["zero_probs"])
             output["mlm_output"] = bernoulli.sample() * mlm_output["pred"]
@@ -225,9 +231,12 @@ class TransformerGenerator(nn.Module):
             output["mlm_zero_probs"] = mlm_output["zero_probs"]
 
         cell_emb = self._get_cell_emb_from_layer(transformer_output, values)
+
+        # if celltype classification objective
         if CLS:
             output["cls_output"] = self.cls_decoder(cell_emb)  # (batch, n_cls)
 
+        # if Masked value prediction for cell embedding
         if MVC:
             mvc_output = self.mvc_decoder(
                 cell_emb,
@@ -241,6 +250,7 @@ class TransformerGenerator(nn.Module):
             if self.explicit_zero_prob:
                 output["mvc_zero_probs"] = mvc_output["zero_probs"]
 
+        # if Elastic cell similarity objective
         if ECS:
             # Here using customized cosine similarity instead of F.cosine_similarity
             # to avoid the pytorch issue of similarity larger than 1.0, pytorch # 78064

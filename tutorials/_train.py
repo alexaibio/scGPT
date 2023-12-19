@@ -33,7 +33,7 @@ def train(
 
     scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optimizer'], OPTM['criterion'], OPTM['scheduler']
 
-    model.train()   # Dropout behave differently during train and evaluation
+    model.train()   # model->train mode. Dropout behaves differently during train and evaluation
     total_loss, total_mse = 0.0, 0.0
     start_time = time.time()
 
@@ -79,16 +79,21 @@ def train(
             src_key_padding_mask = torch.zeros_like(
                 input_values, dtype=torch.bool, device=device
             )
+
         # Automatic Mixed Precision (AMP): faster training times and reduced memory usage, especially with NVIDIA GPU
         with torch.cuda.amp.autocast(enabled=TRN_SET['amp']):
-            # one forward step?
+            # one forward step
+            # adding gene tokens and condition tokens are inside
+            # here model is TransformerGenerator class
             output_dict = model(
-                mapped_input_gene_ids,
-                input_values,
-                input_pert_flags,
+                src=mapped_input_gene_ids,
+                values=input_values,
+                input_pert_flags=input_pert_flags,
                 src_key_padding_mask=src_key_padding_mask,
-                CLS=TRN_SET['CLS'],  # by setting one of those we select an objective function, all False
-                CCE=TRN_SET['CCE'],  # except default MLM=True
+                # by setting one of those we select an objective function, all False
+                # default MLM=True
+                CLS=TRN_SET['CLS'],
+                CCE=TRN_SET['CCE'],
                 MVC=TRN_SET['MVC'],
                 ECS=TRN_SET['ECS'],
             )
