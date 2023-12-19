@@ -861,6 +861,7 @@ class ExprDecoder(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(d_model, 1),
         )
+
         self.explicit_zero_prob = explicit_zero_prob
         if explicit_zero_prob:
             self.zero_logit = nn.Sequential(
@@ -877,6 +878,7 @@ class ExprDecoder(nn.Module):
 
         if not self.explicit_zero_prob:
             return dict(pred=pred_value)
+
         zero_logits = self.zero_logit(x).squeeze(-1)  # (batch, seq_len)
         zero_probs = torch.sigmoid(zero_logits)
         return dict(pred=pred_value, zero_probs=zero_probs)

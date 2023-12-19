@@ -27,7 +27,7 @@ TRN_SET = {
     'ECS': False,       # Elastic cell similarity objective
     'cell_emb_style': "cls",
     'mvc_decoder_style': "inner product, detach",
-    'amp': True
+    'amp': True         # Automatic Mixed Precision (AMP): faster training times and reduced memory usage
 }
 
 
