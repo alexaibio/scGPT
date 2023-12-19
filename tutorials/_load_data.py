@@ -24,12 +24,13 @@ def _load_perturbation_dataset(data_name: str, split: str) -> PertData:
     return pert_data
 
 
-def _harmonize_pert_dataset(pert_data, vocab_foundational):
+def _harmonize_pert_dataset_with_foundational_model(pert_data: PertData, vocab_foundational: GeneVocab):
     # add an "id_in_vocab" as 1 if it is in the gene list of pre-trained foundational model and -1 otherwise
-    pert_data.adata.var["id_in_vocab"] = [1 if gene in vocab_foundational else -1 for gene in
-                                          pert_data.adata.var["gene_name"]]
+    pert_data.adata.var["id_in_vocab"] = [
+        1 if gene in vocab_foundational else -1 for gene in pert_data.adata.var["gene_name"]
+    ]
 
-    # print how much genes in pert dataset in original foundational model
+    # print how much genes in pert dataset is in original foundational model also
     gene_ids_in_vocab = np.array(pert_data.adata.var["id_in_vocab"])
     logger.info(
         f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
@@ -38,8 +39,8 @@ def _harmonize_pert_dataset(pert_data, vocab_foundational):
 
     genes_pert_dataset = pert_data.adata.var["gene_name"].tolist()
 
-    vocab_foundational.set_default_index(vocab_foundational["<pad>"])
     # if gene in pert-dataset is not in foundational vocabulary, substitute it with <pad> token
+    vocab_foundational.set_default_index(vocab_foundational["<pad>"])
     gene_ids = np.array(
         [vocab_foundational[gene] if gene in vocab_foundational else vocab_foundational["<pad>"] for gene in
          genes_pert_dataset],
@@ -50,10 +51,12 @@ def _harmonize_pert_dataset(pert_data, vocab_foundational):
     return gene_ids, n_genes_pert, pert_data
 
 
-def _load_vocabulary_from_foundational(vocab_file: Path) -> GeneVocab:
+def _load_foundational_vocabulary_add_spec_tokens(vocab_file: Path) -> GeneVocab:
 
-    # model vocabulary...
+    # load vocabulary from saved file.
     vocab_foundational = GeneVocab.from_file(vocab_file)  # 60697, gene names: A1BG etc
+
+    # add special tokes if they are still not there
     for s in TRN_SET['special_tokens']:
         if s not in vocab_foundational:
             vocab_foundational.append_token(s)

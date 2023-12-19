@@ -3,6 +3,7 @@ sys.path.insert(0, "../")
 import scgpt as scg
 import torch
 import json
+from pathlib import Path
 logger = scg.logger
 
 
@@ -41,7 +42,7 @@ OPT_SET = {
 
 
 
-def get_foundation_model_parameters(model_file, model_config_file):
+def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
     # default settings for the model
     embsize = 512   # embedding dimension
     d_hid = 512     # dimension of the feedforward network model in nn.TransformerEncoder
@@ -53,12 +54,9 @@ def get_foundation_model_parameters(model_file, model_config_file):
 
     with open(model_config_file, "r") as f:
         model_configs = json.load(f)
-    logger.info(
-        f"Resume model from {model_file}, the model args will override the "
-        f"config {model_config_file}."
-    )
+    logger.info(f"Resume model from {model_file}, the model args will override the config {model_config_file}.")
 
-    # substitute default config parameters with loaded ones
+    # substitute default parameters above with those from loaded foundational model
     logger.info(f'Default values vs loaded:')
     logger.info('            embsize  |  nhead  |  d_hid  |  nlayers  |  n_layers_cls')
     logger.info(f' before:   {embsize},   {nhead},   {d_hid},   {nlayers},   {n_layers_cls}')

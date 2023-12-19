@@ -8,7 +8,7 @@ from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational, _load_vocabulary_from_foundational
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
 from _conf_perturb import (
     OPT_SET, TRN_SET,
     data_name, split, perts_to_plot
@@ -42,7 +42,7 @@ def predict(
     pert_data = _load_perturbation_dataset(data_name, split)
     gene_ids: np.ndarray
     n_genes_pert: int
-    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
+    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
 
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
@@ -100,7 +100,7 @@ def plot_perturbation(
     pert_data: PertData = _load_perturbation_dataset(data_name, split)
     gene_ids: np.ndarray
     n_genes_pert: int
-    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
+    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
 
     adata = pert_data.adata
     gene2idx = pert_data.node_map
