@@ -22,7 +22,7 @@ from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 from tutorials._train import train, evaluate
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational, _load_vocabulary_from_foundational
+from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
 from tutorials._conf_perturb import device
 from _conf_perturb import (
     OPT_SET, TRN_SET,
@@ -62,20 +62,20 @@ if device == 'cuda':
 ######## load scGPT pre-trained model
 
 # use pretrained model - all HUMAN or BRAIN or BLOOD
+# Param prefixes are prefixes of ther layers names
 foundational_model_path = "../save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
     "transformer_encoder",
 ]
-
 model_foundational_dir = Path(foundational_model_path)
 model_config_file = model_foundational_dir / "args.json"
 found_model_file = model_foundational_dir / "best_model.pt"
 found_vocab_file = model_foundational_dir / "vocab.json"
 
-# model vocabulary:  60697, gene names: A1BG etc
-vocab_foundational: GeneVocab = _load_vocabulary_from_foundational(found_vocab_file)
+# model vocabulary (gene id and names):  60697 -> A1BG
+vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file)
 
 # model config parameters...
 # embsize=512, nhead=8, d_hid=512, nlayers=12, n_layers_cls=3
@@ -88,13 +88,15 @@ embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = ge
 ###### Load and correct perturbation data
 # pert_data.adata = 68603(observations) x 5060 (genes)
 # why perturbations are like CREB1+ctrl - is it control should be separated?
+# data_name = "adamson", split="simulation"
 pert_data: PertData = _load_perturbation_dataset(data_name, split)
 
 # in foundational model set token to <pad> if it is not in perturbation gene tokens
 gene_ids: np.ndarray
 n_genes_pert: int
-gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational(pert_data, vocab_foundational)
+gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
 
+# create data structure to pass as a parameter
 inGENE = {
     'gene_ids': gene_ids,   # np.ndarray
     'n_genes': n_genes_pert # int
@@ -125,9 +127,10 @@ model = TransformerGenerator(
     use_fast_transformer=use_fast_transformer,
 )
 
-# can I use load_pretrained() here to avois flash-attention?
+# TODO: could use load_pretrained() here to avoid flash-attention
 pretrained_dict = torch.load(found_model_file, map_location=device)
 
+# uncomment for model debug to compare the layers
 #from tutorials._utils import _compare_model_and_checkpoint
 #_compare_model_and_checkpoint(model, pretrained_dict)
 
@@ -178,7 +181,7 @@ print(model)
 optimizer = torch.optim.Adam(model.parameters(), lr=OPT_SET['lr'])
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, OPT_SET['schedule_interval'], gamma=0.9)
 OPTM_PARAM = {
-    'criterion': masked_mse_loss,
+    'criterion': masked_mse_loss,         # NOTE: must be changed for every particular fine-tuning task
     'criterion_cls': nn.CrossEntropyLoss(),
     'optimizer': optimizer,
     'scheduler': scheduler,
@@ -189,10 +192,9 @@ best_val_loss = float("inf")
 best_model = None
 patience = 0
 
-for epoch in range(1, OPT_SET['epochs'] + 1):
+for current_epoch in range(1, OPT_SET['epochs'] + 1):
     epoch_start_time = time.time()
 
-    # WHERE did they sum up input embeddings? inside transformer?
     # get adamson dataset for fine-tuning
     train_loader = pert_data.dataloader["train_loader"]
     valid_loader = pert_data.dataloader["val_loader"]
@@ -204,7 +206,7 @@ for epoch in range(1, OPT_SET['epochs'] + 1):
         inGENE,
         OPTM_PARAM,
         log_interval,
-        epoch
+        current_epoch
     )
 
     val_loss, val_mre = evaluate(
@@ -218,7 +220,7 @@ for epoch in range(1, OPT_SET['epochs'] + 1):
     elapsed = time.time() - epoch_start_time
     logger.info("-" * 89)
     logger.info(
-        f"| end of epoch {epoch:3d} | time: {elapsed:5.2f}s | "
+        f"| end of epoch {current_epoch:3d} | time: {elapsed:5.2f}s | "
         f"valid loss/mse {val_loss:5.4f} |"
     )
     logger.info("-" * 89)
@@ -231,13 +233,13 @@ for epoch in range(1, OPT_SET['epochs'] + 1):
     else:
         patience += 1
         if patience >= OPT_SET['early_stop']:
-            logger.info(f"Early stop at epoch {epoch}")
+            logger.info(f"Early stop at epoch {current_epoch}")
             break
 
     run_save_dir.mkdir(parents=True, exist_ok=True)
     torch.save(
         model.state_dict(),
-        run_save_dir / f"model_epoch_{epoch}_val_loss_{val_loss:5.4f}.pt",
+        run_save_dir / f"model_epoch_{current_epoch}_val_loss_{val_loss:5.4f}.pt",
     )
 
     scheduler.step()

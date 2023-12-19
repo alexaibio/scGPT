@@ -21,15 +21,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def train(
         model: nn.Module,
         train_loader: torch.utils.data.DataLoader, # torch_geometric.DataLoader
-        TRN_SET: dict, # pad token ..., MLM / CLS ..., cell_emb_style
+        TRN_SET: dict,  # pad token ..., MLM / CLS ..., cell_emb_style
         inGENE: dict,   # input gene vector: gene_id, ngenes
-        OPTM: dict,  # objective function: 'criterion': masked_mse_loss, etc
+        OPTM: dict,     # objective function: 'criterion': masked_mse_loss, etc
         log_interval: int,   # 250
         epoch: 1           # current epoch
 ) -> None:
     """
     Train the model for one epoch.
     """
+
     scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optimizer'], OPTM['criterion'], OPTM['scheduler']
 
     model.train()   # Dropout behave differently during train and evaluation

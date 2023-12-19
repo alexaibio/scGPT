@@ -3,7 +3,7 @@ import torch
 import scgpt as scg
 from scgpt.model import TransformerGenerator
 from tutorials._predict import plot_perturbation, predict
-from tutorials._load_data import _load_vocabulary_from_foundational
+from tutorials._load_data import _load_foundational_vocabulary_add_spec_tokens
 from tutorials._conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
@@ -25,7 +25,7 @@ found_model_file = model_foundational_dir / "best_model.pt"
 found_vocab_file = model_foundational_dir / "vocab.json"
 
 # model vocabulary:  60697, gene names: A1BG etc
-vocab_foundational: GeneVocab = _load_vocabulary_from_foundational(found_vocab_file)
+vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file)
 
 # model config parameters...
 embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = get_foundation_model_parameters(
