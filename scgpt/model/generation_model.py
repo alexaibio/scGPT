@@ -78,13 +78,15 @@ class TransformerGenerator(nn.Module):
 
         self.use_fast_transformer = use_fast_transformer
 
-        self.encoder = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])
-        self.value_encoder = ContinuousValueEncoder(d_model, dropout)
-        self.pert_encoder = nn.Embedding(3, d_model, padding_idx=pert_pad_id)
+        # STEP: encode input vectors
+        self.encoder = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])   # embed gene token vector
+        self.value_encoder = ContinuousValueEncoder(d_model, dropout)               # embed expression vector
+        self.pert_encoder = nn.Embedding(3, d_model, padding_idx=pert_pad_id)       # embed condition vector
 
         print("-->Using simple batchnorm instead of domain specific batchnorm")
         self.bn = nn.BatchNorm1d(d_model, eps=6.1e-5)
 
+        # STEP: ENCODER
         if use_fast_transformer:
             if fast_transformer_backend == "linear":
                 self.transformer_encoder = FastTransformerEncoderWrapper(
@@ -106,6 +108,7 @@ class TransformerGenerator(nn.Module):
             )
             self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
+        # STEP: DECODERs
         # self.decoder = nn.Linear(d_model, 1)
         self.decoder = ExprDecoder(
             d_model,
@@ -218,6 +221,7 @@ class TransformerGenerator(nn.Module):
         )
 
         # STEP 2: DECODE -> ExprDecoder: Linear/RelU/Linear/relu/Linear
+        # use different decoders depending on task: simple masking modelling / classification etc
         output = {}
         mlm_output = self.decoder(transformer_output)
 
@@ -362,6 +366,9 @@ def generate_square_subsequent_mask(sz: int) -> Tensor:
 
 
 class GeneEncoder(nn.Module):
+    """
+    Do an embedding for eny gene vector, i.e correspond a 512 embedding to each of 10000 genes
+    """
     def __init__(
         self,
         num_embeddings: int,
@@ -370,7 +377,9 @@ class GeneEncoder(nn.Module):
     ):
         super().__init__()
         self.embedding = nn.Embedding(
-            num_embeddings, embedding_dim, padding_idx=padding_idx
+            num_embeddings,     # vocabulary size, aka number of genes
+            embedding_dim,      # size of the embedding vector (512?)
+            padding_idx=padding_idx  # adds a padding vector at the specified index in the embedding layer
         )
         self.enc_norm = nn.LayerNorm(embedding_dim)
 

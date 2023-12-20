@@ -522,6 +522,7 @@ class FastTransformerEncoderWrapper(nn.Module):
     def build_fast_transformer_encoder(
         d_model: int, nhead: int, d_hid: int, nlayers: int, dropout: float
     ) -> nn.Module:
+        # https://github.com/idiap/fast-transformers
         from fast_transformers.builders import TransformerEncoderBuilder
 
         if d_model % nhead != 0:
