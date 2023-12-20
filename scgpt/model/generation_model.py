@@ -81,13 +81,15 @@ class TransformerGenerator(nn.Module):
         # STEP: encode input vectors
         self.encoder = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])   # embed gene token vector
         self.value_encoder = ContinuousValueEncoder(d_model, dropout)               # embed expression vector
-        self.pert_encoder = nn.Embedding(3, d_model, padding_idx=pert_pad_id)       # embed condition vector
+        self.pert_encoder = nn.Embedding(num_embeddings=3, embedding_dim=d_model, padding_idx=pert_pad_id)  # embed condition vector
 
         print("-->Using simple batchnorm instead of domain specific batchnorm")
         self.bn = nn.BatchNorm1d(d_model, eps=6.1e-5)
 
         # STEP: ENCODER
         if use_fast_transformer:
+            # create a multi-layer transformer encoder with 12 layers and  8 heads by either
+            # FastTransformers library or FlashAttention library
             if fast_transformer_backend == "linear":
                 self.transformer_encoder = FastTransformerEncoderWrapper(
                     d_model, nhead, d_hid, nlayers, dropout
@@ -103,6 +105,7 @@ class TransformerGenerator(nn.Module):
                 )
                 self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         else:
+            # default option: use Encoder from Torch
             encoder_layers = TransformerEncoderLayer(
                 d_model, nhead, d_hid, dropout, batch_first=True
             )
@@ -115,7 +118,10 @@ class TransformerGenerator(nn.Module):
             explicit_zero_prob=explicit_zero_prob,
         )
 
+        # decoder for classification task
         self.cls_decoder = ClsDecoder(d_model, n_cls, nlayers=nlayers_cls)
+
+        # decoder for Masked Value Prediction for CEll embeddings
         if do_mvc:
             self.mvc_decoder = MVCDecoder(
                 d_model,
@@ -123,7 +129,7 @@ class TransformerGenerator(nn.Module):
                 explicit_zero_prob=explicit_zero_prob,
             )
 
-        self.sim = Similarity(temp=0.5)
+        self.sim = Similarity(temp=0.5) # cos similarity here
         self.creterion_cce = nn.CrossEntropyLoss()
 
         self.init_weights()
@@ -134,20 +140,30 @@ class TransformerGenerator(nn.Module):
 
     def _encode(
         self,
-        src: Tensor,
-        values: Tensor,
-        input_pert_flags,
+        src: Tensor,        # gene token vector
+        values: Tensor,     # gene expression vector
+        input_pert_flags,   # condition vector, it is perturbation 1/0/NA this case
         src_key_padding_mask: Tensor,
     ) -> Tensor:
 
+        # EMBED all input vectors
         src = self.encoder(src)  # (batch, seq_len, embsize)
         self.cur_gene_token_embs = src
+
+        # encode expression values
         values = self.value_encoder(values)  # (batch, seq_len, embsize)
+
+        # encode condition vector
         perts = self.pert_encoder(input_pert_flags)  # (batch, seq_len, embsize)
+
+        # SUM UP: collapse all of them into single vector
         total_embs = src + values + perts
 
+        # hotfix to be able to install later version of flashattention
         # to cuda 12: https://github.com/bowang-lab/scGPT/issues/69
         total_embs = self.bn(total_embs.permute(0, 2, 1)).permute(0, 2, 1)
+
+        # ENCODE via 12 encoding blocks
         output = self.transformer_encoder(
             total_embs,
             src_key_padding_mask=src_key_padding_mask
@@ -196,7 +212,7 @@ class TransformerGenerator(nn.Module):
         CCE: bool = False,
         MVC: bool = False,
         ECS: bool = False,
-        do_sample: bool = False,
+        do_sample: bool = False,    #
     ) -> Mapping[str, Tensor]:
         """
         Args:
@@ -215,7 +231,7 @@ class TransformerGenerator(nn.Module):
             do_sample = True
             logger.warning("Auto set do_sample to True when model is in eval mode.")
 
-        # STEP 1: ENCODE -> Embedding + Norm
+        # STEP 1: ENCODE -> Embedding and 12 blocks inside
         transformer_output = self._encode(
             src, values, input_pert_flags, src_key_padding_mask
         )
@@ -223,17 +239,24 @@ class TransformerGenerator(nn.Module):
         # STEP 2: DECODE -> ExprDecoder: Linear/RelU/Linear/relu/Linear
         # use different decoders depending on task: simple masking modelling / classification etc
         output = {}
+
+        # Masked Language Modeling (MLM)
         mlm_output = self.decoder(transformer_output)
 
-        # TODO: WTF that?
+        # The standard random masking strategy in MLM causes the pre-trained language models (PLMs) to be biased toward high-frequency tokens.
+        # To alleviate this frequency bias issue, we propose two simple and effective Weighted Sampling strategies for masking tokens based on the token frequency and training loss.
+        # https://arxiv.org/abs/2302.14225
+        # Verify if my assumption is correct
         if self.explicit_zero_prob and do_sample:
             bernoulli = Bernoulli(probs=mlm_output["zero_probs"])
             output["mlm_output"] = bernoulli.sample() * mlm_output["pred"]
         else:
             output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
+
         if self.explicit_zero_prob:
             output["mlm_zero_probs"] = mlm_output["zero_probs"]
 
+        # TODO: ??
         cell_emb = self._get_cell_emb_from_layer(transformer_output, values)
 
         # if celltype classification objective
@@ -270,6 +293,13 @@ class TransformerGenerator(nn.Module):
 
             output["loss_ecs"] = torch.mean(1 - (cos_sim - self.ecs_threshold) ** 2)
 
+        # output might contain:
+        #   output["mlm_output"]
+        #   output["mlm_zero_probs"]
+        #   output["cls_output"]
+        #   output["mvc_output"]
+        #   output["mvc_zero_probs"]
+        #   output["loss_ecs"]
         return output
 
     def encode_batch(
