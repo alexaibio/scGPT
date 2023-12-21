@@ -86,7 +86,7 @@ class TransformerGenerator(nn.Module):
         print("-->Using simple batchnorm instead of domain specific batchnorm")
         self.bn = nn.BatchNorm1d(d_model, eps=6.1e-5)
 
-        # STEP: ENCODER
+        # STEP: ENCODER: d_model=512, nhead=8, d_hid = ?
         if use_fast_transformer:
             # create a multi-layer transformer encoder with 12 layers and  8 heads by either
             # FastTransformers library or FlashAttention library
