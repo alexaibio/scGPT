@@ -248,7 +248,7 @@ class TransformerGenerator(nn.Module):
         # https://arxiv.org/abs/2302.14225
         # Verify if my assumption is correct
         if self.explicit_zero_prob and do_sample:
-            bernoulli = Bernoulli(probs=mlm_output["zero_probs"])
+            bernoulli = Bernoulli(probs=mlm_output["zero_probs"])   # mlm_output["zero_probs"]         is
             output["mlm_output"] = bernoulli.sample() * mlm_output["pred"]
         else:
             output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
