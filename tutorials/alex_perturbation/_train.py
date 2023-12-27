@@ -17,27 +17,26 @@ logger = scg.logger
 set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-run = wandb.init(
-    project="scGPT_perturbation_finetune",
-)
-
 
 def train(
         model: nn.Module,
         train_loader: torch.utils.data.DataLoader, # torch_geometric.DataLoader
-        TRN_SET: dict,  # pad token ..., MLM / CLS ..., cell_emb_style
-        inGENE: dict,   # input gene vector: gene_id, ngenes
-        OPTM: dict,     # objective function: 'criterion': masked_mse_loss, etc
-        log_interval: int,   # 250
-        epoch: 1           # current epoch
+        INPT_PAR: dict,     # pad token ..., MLM / CLS ..., cell_emb_style
+        inGENE: dict,       # input gene vector: gene_id, ngenes
+        OPTM_PARAM: dict,   # objective function: 'criterion': masked_mse_loss, etc
+        log_interval: int,  # 250
+        epoch: 1            # current epoch
 ) -> None:
     """
     Train the model for one epoch.
     """
-
+    run = wandb.init(
+        project="scGPT_perturbation_finetune",
+        name=INPT_PAR.get('run_name', 'perturb_fine_tune'),
+    )
     wandb.watch(model)
 
-    scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optimizer'], OPTM['criterion'], OPTM['scheduler']
+    scaler, optimizer, criterion, scheduler = OPTM_PARAM['scaler'], OPTM_PARAM['optimizer'], OPTM_PARAM['criterion'], OPTM_PARAM['scheduler']
 
     model.train()   # model->train mode. Dropout behaves differently during train and evaluation
     total_loss, total_mse = 0.0, 0.0
@@ -63,16 +62,16 @@ def train(
 
         target_gene_values = batch_data.y  # (batch_size, n_genes), 30x5060
 
-        if TRN_SET['include_zero_gene'] in ["all", "batch-wise"]:  # what is include zero gene?
-            if TRN_SET['include_zero_gene'] == "all":
+        if INPT_PAR['include_zero_gene'] in ["all", "batch-wise"]:  # what is include zero gene?
+            if INPT_PAR['include_zero_gene'] == "all":
                 input_gene_ids = torch.arange(inGENE['n_genes'], device=device, dtype=torch.long)
             else:
                 input_gene_ids = ( ori_gene_values.nonzero()[:, 1].flatten().unique().sort()[0] )
 
-            # what is seq lenth in this context? it is not a language!
+            # what is seq length in this context? it is not a language!
             # sample input_gene_id
-            if len(input_gene_ids) > TRN_SET['max_seq_len']:  # len(input_gene_ids): 5060 / 'max_seq_len': 1536
-                input_gene_ids = torch.randperm(len(input_gene_ids), device=device)[ :TRN_SET['max_seq_len']]
+            if len(input_gene_ids) > INPT_PAR['max_seq_len']:  # len(input_gene_ids): 5060 / 'max_seq_len': 1536
+                input_gene_ids = torch.randperm(len(input_gene_ids), device=device)[:INPT_PAR['max_seq_len']]
 
             input_values = ori_gene_values[:, input_gene_ids]  # now it is only 1536 - why do we cut it?!
             input_pert_flags = pert_flags[:, input_gene_ids]
@@ -87,7 +86,7 @@ def train(
             )
 
         # Automatic Mixed Precision (AMP): faster training times and reduced memory usage, especially with NVIDIA GPU
-        with torch.cuda.amp.autocast(enabled=TRN_SET['amp']):
+        with torch.cuda.amp.autocast(enabled=INPT_PAR['amp']):
             # one forward step
             # adding gene tokens and condition tokens are inside
             # here model is TransformerGenerator class
@@ -98,10 +97,10 @@ def train(
                 src_key_padding_mask=src_key_padding_mask,
                 # by setting one of those we select an objective function, all False
                 # default MLM=True
-                CLS=TRN_SET['CLS'],
-                CCE=TRN_SET['CCE'],
-                MVC=TRN_SET['MVC'],
-                ECS=TRN_SET['ECS'],
+                CLS=INPT_PAR['CLS'],
+                CCE=INPT_PAR['CCE'],
+                MVC=INPT_PAR['MVC'],
+                ECS=INPT_PAR['ECS'],
             )
             output_values = output_dict["mlm_output"]   # get default MLM output
 
@@ -201,6 +200,7 @@ def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader, TRN_SET,
                 src_key_padding_mask = torch.zeros_like(
                     input_values, dtype=torch.bool, device=input_values.device
                 )
+
             with torch.cuda.amp.autocast(enabled=TRN_SET['amp']):
                 output_dict = model(
                     mapped_input_gene_ids,
@@ -219,10 +219,9 @@ def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader, TRN_SET,
                     input_values, dtype=torch.bool, device=input_values.device
                 )
                 loss = criterion(output_values, target_values, masked_positions)
+
             total_loss += loss.item()
-            total_error += masked_relative_error(
-                output_values, target_values, masked_positions
-            ).item()
+            total_error += masked_relative_error(output_values, target_values, masked_positions).item()
 
     return total_loss / len(val_loader), total_error / len(val_loader)
 

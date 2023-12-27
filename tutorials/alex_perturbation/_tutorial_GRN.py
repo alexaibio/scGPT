@@ -129,7 +129,7 @@ In the finetuned setting, we constructed the gene networks in a similar manner f
 on the Immune Human dataset. Following Ceglia et al.
 '''
 # Specify data path; here we load the Immune Human dataset
-data_dir = Path("../data/FineTune")
+data_dir = Path("data/FineTune")
 
 # sc is library for single-cell RNA-seq (scRNA-seq) analysis: Clustering, DEA, Meta Analisys, Vizualization
 # https://www.nature.com/articles/s41592-021-01336-8#data-availability

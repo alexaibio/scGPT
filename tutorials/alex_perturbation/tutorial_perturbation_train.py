@@ -16,12 +16,14 @@ from tutorials.alex_perturbation._train import train, evaluate
 from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
 from tutorials.alex_perturbation._conf_perturb import device
 from _conf_perturb import (
-    OPT_SET, TRN_SET,
+    TRN_PAR, INPT_PAR,
     get_foundation_model_parameters,
     log_interval,
     data_name, split
 )
 from gears import PertData
+from _utils import get_perturb_folder, get_root_folder
+
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
@@ -30,8 +32,12 @@ set_seed(42)
 logger = scg.logger
 #scg.utils.add_file_handler(logger, save_dir / "run.log")
 
+print(get_perturb_folder())
+
 # create folder for today's fine-tuning
-run_save_dir = Path(f"./save/fine_tune_perturb-{time.strftime('%b%d-%H-%M')}/")
+run_name = f"fine_tune_perturb-{time.strftime('%b%d-%H-%M')}"
+INPT_PAR['run_name'] = run_name
+run_save_dir = get_perturb_folder() / "save" / run_name
 run_save_dir.mkdir(parents=True, exist_ok=True)
 print(f"saving to {run_save_dir}")
 
@@ -54,16 +60,16 @@ if device == 'cuda':
 
 # use pretrained model - all HUMAN or BRAIN or BLOOD
 # Param prefixes are prefixes of ther layers names
-foundational_model_path = "save/scGPT_human"
+foundational_model_path = get_root_folder() / "save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
     "transformer_encoder",
 ]
-model_foundational_dir = Path(foundational_model_path)
-model_config_file = model_foundational_dir / "args.json"
-found_model_file = model_foundational_dir / "best_model.pt"
-found_vocab_file = model_foundational_dir / "vocab.json"
+
+model_config_file = foundational_model_path / "args.json"
+found_model_file = foundational_model_path / "best_model.pt"
+found_vocab_file = foundational_model_path / "vocab.json"
 
 # model vocabulary (gene id and names):  60697 -> A1BG
 vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file)
@@ -109,12 +115,12 @@ model = TransformerGenerator(
     n_cls=1,
     vocab=vocab_foundational,
     dropout=dropout,
-    pad_token=TRN_SET['pad_token'],
-    pad_value=TRN_SET['pad_value'],
-    pert_pad_id=TRN_SET['pert_pad_id'],
-    do_mvc=TRN_SET['MVC'],
-    cell_emb_style=TRN_SET['cell_emb_style'],
-    mvc_decoder_style=TRN_SET['mvc_decoder_style'],
+    pad_token=INPT_PAR['pad_token'],
+    pad_value=INPT_PAR['pad_value'],
+    pert_pad_id=INPT_PAR['pert_pad_id'],
+    do_mvc=INPT_PAR['MVC'],
+    cell_emb_style=INPT_PAR['cell_emb_style'],
+    mvc_decoder_style=INPT_PAR['mvc_decoder_style'],
     use_fast_transformer=use_fast_transformer,
 )
 
@@ -169,21 +175,21 @@ print(model)
 
 ################### FINETUNING: train and validate def here
 
-optimizer = torch.optim.Adam(model.parameters(), lr=OPT_SET['lr'])
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, OPT_SET['schedule_interval'], gamma=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=TRN_PAR['lr'])
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, TRN_PAR['schedule_interval'], gamma=0.9)
 OPTM_PARAM = {
     'criterion': masked_mse_loss,         # NOTE: must be changed for every particular fine-tuning task
     'criterion_cls': nn.CrossEntropyLoss(),
     'optimizer': optimizer,
     'scheduler': scheduler,
-    'scaler': torch.cuda.amp.GradScaler(enabled=TRN_SET['amp'])
+    'scaler': torch.cuda.amp.GradScaler(enabled=INPT_PAR['amp'])
 }
 
 best_val_loss = float("inf")
 best_model = None
 patience = 0
 
-for current_epoch in range(1, OPT_SET['epochs'] + 1):
+for current_epoch in range(1, TRN_PAR['epochs'] + 1):
     epoch_start_time = time.time()
 
     # get adamson dataset for fine-tuning
@@ -193,7 +199,7 @@ for current_epoch in range(1, OPT_SET['epochs'] + 1):
     train(
         model,
         train_loader,
-        TRN_SET,
+        INPT_PAR,
         inGENE,
         OPTM_PARAM,
         log_interval,
@@ -203,7 +209,7 @@ for current_epoch in range(1, OPT_SET['epochs'] + 1):
     val_loss, val_mre = evaluate(
         model,
         valid_loader,
-        TRN_SET,
+        INPT_PAR,
         inGENE,
         OPTM_PARAM
     )
@@ -223,7 +229,7 @@ for current_epoch in range(1, OPT_SET['epochs'] + 1):
         patience = 0
     else:
         patience += 1
-        if patience >= OPT_SET['early_stop']:
+        if patience >= TRN_PAR['early_stop']:
             logger.info(f"Early stop at epoch {current_epoch}")
             break
 

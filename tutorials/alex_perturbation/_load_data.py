@@ -2,7 +2,7 @@ import time
 import numpy as np
 from pathlib import Path
 import scgpt as scg
-from _conf_perturb import OPT_SET, TRN_SET
+from _conf_perturb import TRN_PAR, INPT_PAR
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 # GEARS: Predicting transcriptional outcomes of novel multi-gene perturbations
 from gears import PertData
@@ -19,7 +19,7 @@ def _load_perturbation_dataset(data_name: str, split: str) -> PertData:
     #   condition (ctrl, CREB1+ctrl, ZNF326+ctrl... ), cell type (K562), observation name.   pert_data.adata.obs
     pert_data.load(data_name=data_name)
     pert_data.prepare_split(split=split, seed=1)
-    pert_data.get_dataloader(batch_size=OPT_SET['batch_size'], test_batch_size=OPT_SET['eval_batch_size'])
+    pert_data.get_dataloader(batch_size=TRN_PAR['batch_size'], test_batch_size=TRN_PAR['eval_batch_size'])
 
     return pert_data
 
@@ -57,7 +57,7 @@ def _load_foundational_vocabulary_add_spec_tokens(vocab_file: Path) -> GeneVocab
     vocab_foundational = GeneVocab.from_file(vocab_file)  # 60697, gene names: A1BG etc
 
     # add special tokes if they are still not there
-    for s in TRN_SET['special_tokens']:
+    for s in INPT_PAR['special_tokens']:
         if s not in vocab_foundational:
             vocab_foundational.append_token(s)
 

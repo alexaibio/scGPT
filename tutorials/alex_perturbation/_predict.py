@@ -10,7 +10,7 @@ from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model
 from _conf_perturb import (
-    OPT_SET, TRN_SET,
+    TRN_PAR, INPT_PAR,
     data_name, split
 )
 from gears import PertData
@@ -72,14 +72,14 @@ def predict(
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert, ctrl_adata, gene_list, device, num_samples=pool_size
             )
-            loader = DataLoader(cell_graphs, batch_size=OPT_SET['eval_batch_size'], shuffle=False)
+            loader = DataLoader(cell_graphs, batch_size=TRN_PAR['eval_batch_size'], shuffle=False)
             preds = []
             for batch_data in loader:
                 pred_gene_values = model.pred_perturb(
                     batch_data,
-                    TRN_SET['include_zero_gene'],
+                    INPT_PAR['include_zero_gene'],
                     gene_ids=gene_ids,
-                    amp=TRN_SET['amp']
+                    amp=INPT_PAR['amp']
                 )
                 preds.append(pred_gene_values)
             preds = torch.cat(preds, dim=0)

@@ -5,7 +5,7 @@ from scgpt.model import TransformerGenerator
 from tutorials.alex_perturbation._predict import plot_perturbation, predict
 from tutorials.alex_perturbation._load_data import _load_foundational_vocabulary_add_spec_tokens
 from tutorials.alex_perturbation._conf_perturb import (
-    TRN_SET,
+    INPT_PAR,
     get_foundation_model_parameters,
     perts_to_plot
 )
@@ -44,12 +44,12 @@ model = TransformerGenerator(
     n_cls=1,
     vocab=vocab_foundational,
     dropout=dropout,
-    pad_token=TRN_SET['pad_token'],
-    pad_value=TRN_SET['pad_value'],
-    pert_pad_id=TRN_SET['pert_pad_id'],
-    do_mvc=TRN_SET['MVC'],
-    cell_emb_style=TRN_SET['cell_emb_style'],
-    mvc_decoder_style=TRN_SET['mvc_decoder_style'],
+    pad_token=INPT_PAR['pad_token'],
+    pad_value=INPT_PAR['pad_value'],
+    pert_pad_id=INPT_PAR['pert_pad_id'],
+    do_mvc=INPT_PAR['MVC'],
+    cell_emb_style=INPT_PAR['cell_emb_style'],
+    mvc_decoder_style=INPT_PAR['mvc_decoder_style'],
     use_fast_transformer=use_fast_transformer,
 )
 

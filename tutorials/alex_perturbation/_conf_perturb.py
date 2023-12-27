@@ -10,7 +10,7 @@ logger = scg.logger
 ###### 1 -  Training Settings
 
 # settings for data processing
-TRN_SET = {
+INPT_PAR = {
     'pad_token': "<pad>",
     'special_tokens': ["<pad>", "<cls>", "<eoc>"],  # <cls> - for aggregating all genes into a cell representation ??
     'pad_value': 0,             # for padding values
@@ -32,7 +32,7 @@ TRN_SET = {
 
 
 # settings for optimizer
-OPT_SET = {
+TRN_PAR = {
     'lr': 6e-5,             # or 1e-4
     'batch_size': 30,       # was 64
     'eval_batch_size': 30,   # was 64
