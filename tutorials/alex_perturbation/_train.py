@@ -158,6 +158,11 @@ def train(
                 }
             )
 
+    run.finish()
+    wandb.finish()
+
+######### END
+
 
 def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader, TRN_SET, inGENE, OPTM) -> float:
     """
