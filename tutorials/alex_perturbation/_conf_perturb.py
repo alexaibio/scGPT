@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, "../")
+sys.path.insert(0, "../../")
 import scgpt as scg
 import torch
 import json

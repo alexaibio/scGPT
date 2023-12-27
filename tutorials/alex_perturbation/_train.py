@@ -4,6 +4,7 @@ import numpy as np
 import warnings
 import torch
 from torch import nn
+import wandb
 from scgpt.loss import (
     masked_mse_loss,
     criterion_neg_log_bernoulli,
@@ -13,9 +14,12 @@ from scgpt.utils import set_seed, map_raw_id_to_vocab_id
 import scgpt as scg
 
 logger = scg.logger
-sys.path.insert(0, "../")
 set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+run = wandb.init(
+    project="scGPT_perturbation_finetune",
+)
 
 
 def train(
@@ -30,6 +34,8 @@ def train(
     """
     Train the model for one epoch.
     """
+
+    wandb.watch(model)
 
     scaler, optimizer, criterion, scheduler = OPTM['scaler'], OPTM['optimizer'], OPTM['criterion'], OPTM['scheduler']
 
@@ -144,6 +150,14 @@ def train(
             total_loss = 0
             total_mse = 0
             start_time = time.time()
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "cur_loss": cur_loss,
+                    "cur_mse": cur_mse,
+                    "learning rate": lr
+                }
+            )
 
 
 def evaluate(model: nn.Module, val_loader: torch.utils.data.DataLoader, TRN_SET, inGENE, OPTM) -> float:

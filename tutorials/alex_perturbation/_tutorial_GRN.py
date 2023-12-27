@@ -1,33 +1,24 @@
-import copy
 import json
 import os
 import sys
 import warnings
 from pathlib import Path
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
-import networkx as nx
-import pandas as pd
-import tqdm
-from collections import OrderedDict
+
 os.environ["KMP_WARNINGS"] = "off"
 warnings.filterwarnings('ignore')
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-from anndata import AnnData
 import scanpy as sc
-import gseapy as gp   # gene set enrichment analysis
 
 import torch
-from torchtext.vocab import (Vocab as VocabPybind)
-from torchtext.vocab import Vocab
+
 #from torchtext._torchtext import (
 #    Vocab as VocabPybind,
 #)
 
-sys.path.insert(0, "../")
-import scgpt as scg
+sys.path.insert(0, "../../")
 from scgpt.tasks import GeneEmbedding
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.model import TransformerModel
@@ -55,7 +46,7 @@ n_input_bins = n_bins
 #################################################
 
 # Specify model path; here we load the pre-trained _scGPT blood model
-model_dir = Path("../save/scGPT_bc")
+model_dir = Path("../../save/scGPT_bc")
 model_config_file = model_dir / "args.json"
 model_file = model_dir / "best_model.pt"
 vocab_file = model_dir / "vocab.json"
@@ -101,7 +92,7 @@ model = TransformerModel(
 
 checkpoint = torch.load(model_file, map_location=device)    # Load OrderedDict
 
-from tutorials._utils import _compare_model_and_checkpoint
+from tutorials.alex_perturbation._utils import _compare_model_and_checkpoint
 _compare_model_and_checkpoint(model, checkpoint)
 
 try:

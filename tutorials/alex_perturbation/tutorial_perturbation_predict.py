@@ -2,15 +2,14 @@ from pathlib import Path
 import torch
 import scgpt as scg
 from scgpt.model import TransformerGenerator
-from tutorials._predict import plot_perturbation, predict
-from tutorials._load_data import _load_foundational_vocabulary_add_spec_tokens
-from tutorials._conf_perturb import (
-    OPT_SET, TRN_SET,
+from tutorials.alex_perturbation._predict import plot_perturbation, predict
+from tutorials.alex_perturbation._load_data import _load_foundational_vocabulary_add_spec_tokens
+from tutorials.alex_perturbation._conf_perturb import (
+    TRN_SET,
     get_foundation_model_parameters,
-    log_interval,
-    data_name, split, perts_to_plot
+    perts_to_plot
 )
-from tutorials._conf_perturb import device
+from tutorials.alex_perturbation._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 logger = scg.logger
 
@@ -18,7 +17,7 @@ logger = scg.logger
 ################### Predict and Plot
 
 # load vocabulary, model parameters and model itself
-foundational_model_path = "../save/scGPT_human"
+foundational_model_path = "save/scGPT_human"
 model_foundational_dir = Path(foundational_model_path)
 model_config_file = model_foundational_dir / "args.json"
 found_model_file = model_foundational_dir / "best_model.pt"

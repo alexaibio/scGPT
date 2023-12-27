@@ -3,15 +3,15 @@ import logging
 import numpy as np
 import torch
 from torch import nn
-from typing import Iterable, List, Tuple, Dict, Union, Optional
+from typing import List, Dict, Optional
 from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
+from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model
 from _conf_perturb import (
     OPT_SET, TRN_SET,
-    data_name, split, perts_to_plot
+    data_name, split
 )
 from gears import PertData
 import seaborn as sns

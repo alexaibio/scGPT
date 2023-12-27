@@ -7,23 +7,14 @@ import torch
 import numpy as np
 import matplotlib
 from torch import nn
-from torchtext.vocab import Vocab
-from torchtext.vocab import (Vocab as VocabPybind)
-
-sys.path.insert(0, "../")
 import scgpt as scg
 from scgpt.model import TransformerGenerator
-from scgpt.loss import (
-    masked_mse_loss,
-    criterion_neg_log_bernoulli,
-    masked_relative_error,
-)
-from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
+from scgpt.loss import masked_mse_loss
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from scgpt.utils import set_seed, map_raw_id_to_vocab_id
-from tutorials._train import train, evaluate
-from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
-from tutorials._conf_perturb import device
+from scgpt.utils import set_seed
+from tutorials.alex_perturbation._train import train, evaluate
+from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
+from tutorials.alex_perturbation._conf_perturb import device
 from _conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
@@ -63,7 +54,7 @@ if device == 'cuda':
 
 # use pretrained model - all HUMAN or BRAIN or BLOOD
 # Param prefixes are prefixes of ther layers names
-foundational_model_path = "../save/scGPT_human"
+foundational_model_path = "save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
