@@ -1,4 +1,3 @@
-from pathlib import Path
 import torch
 import scgpt as scg
 from scgpt.model import TransformerGenerator
@@ -11,17 +10,15 @@ from tutorials.alex_perturbation._conf_perturb import (
 )
 from tutorials.alex_perturbation._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
+from _utils import get_perturb_folder, get_root_folder
 logger = scg.logger
 
 
-################### Predict and Plot
-
 # load vocabulary, model parameters and model itself
-foundational_model_path = "save/scGPT_human"
-model_foundational_dir = Path(foundational_model_path)
-model_config_file = model_foundational_dir / "args.json"
-found_model_file = model_foundational_dir / "best_model.pt"
-found_vocab_file = model_foundational_dir / "vocab.json"
+foundational_model_path = get_root_folder() / "save/scGPT_human"
+model_config_file = foundational_model_path / "args.json"
+found_model_file = foundational_model_path / "best_model.pt"
+found_vocab_file = foundational_model_path / "vocab.json"
 
 # model vocabulary:  60697, gene names: A1BG etc
 vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file)
@@ -54,8 +51,13 @@ model = TransformerGenerator(
 )
 
 ############### load fine tuned model - not fundamental!
-run_save_dir = Path(f"./save/fine_tune_perturb-Dec11-20-03/")
-tuned_model_file = run_save_dir / 'model_epoch_10_val_loss_0.1331.pt'
+run_name = "fine_tune_perturb-Dec11-20-03"
+best_model = "model_epoch_10_val_loss_0.1331.pt"
+
+INPT_PAR['run_name'] = run_name
+run_save_dir = get_perturb_folder() / "save" / run_name
+tuned_model_file = run_save_dir / best_model
+
 best_tuned_model_dict = torch.load(tuned_model_file, map_location=device)
 
 model_dict = model.state_dict()
@@ -64,7 +66,7 @@ model.load_state_dict(model_dict)
 model.to(device)
 
 
-# do  a test prediction of expression after perturbation
+# test prediction of expression after perturbation
 logger.info(f'------->  Predict a perturbation for :  {[["FEV"], ["FEV", "SAMD11"]]}')
 results_pred = predict(
     model=model,
@@ -74,10 +76,10 @@ results_pred = predict(
 )
 # dict of FEB: ndarray[5060,], / FEV_SAMD11: (5060,)
 
-# sanity check of which perturbation we need to do
+
+############################ plot
 logger.info(f' -----> Plot a perturbation for :  {perts_to_plot}')
 
-# plot
 for pert in perts_to_plot:
     plot_perturbation(
         model=model,
@@ -87,5 +89,5 @@ for pert in perts_to_plot:
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
 
-logger.info(' END of prediction')
+logger.info(' END of prediction and plotting')
 

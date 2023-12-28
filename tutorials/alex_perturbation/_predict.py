@@ -37,8 +37,6 @@ def predict(
             the stats of these predictions. If `None`, use all control cells.
     """
 
-    #vocab_foundational = _load_vocabulary_from_foundational(found_vocab_file)
-
     pert_data = _load_perturbation_dataset(data_name, split)
     gene_ids: np.ndarray
     n_genes_pert: int
@@ -54,12 +52,8 @@ def predict(
     gene_list = pert_data.gene_names.values.tolist()
 
     # check if genes to be perturbed are in model's gene list
-    for pert in pert_list:
-        for i in pert:
-            if i not in gene_list:
-                raise ValueError(
-                    "The gene is not in the perturbation graph. Please select from GEARS.gene_list!"
-                )
+    if any(i not in gene_list for pert in pert_list for i in pert):
+        raise ValueError("One or more genes are not in the perturbation graph. Please select from GEARS.gene_list!")
 
     model.eval()
     device = next(model.parameters()).device
@@ -69,10 +63,17 @@ def predict(
         results_pred = {}
         for pert in pert_list:
             print(f'... running prediction for genes {pert}')
+            # GEARs (Gene Expression Analysis with Recurrent neural networkS)
             cell_graphs = create_cell_graph_dataset_for_prediction(
-                pert, ctrl_adata, gene_list, device, num_samples=pool_size
+                pert_gene=pert,
+                ctrl_adata=ctrl_adata,
+                gene_names=gene_list,
+                device=device,
+                num_samples=pool_size
             )
-            loader = DataLoader(cell_graphs, batch_size=TRN_PAR['eval_batch_size'], shuffle=False)
+
+            loader = DataLoader(dataset=cell_graphs, batch_size=TRN_PAR['eval_batch_size'], shuffle=False)
+
             preds = []
             for batch_data in loader:
                 pred_gene_values = model.pred_perturb(

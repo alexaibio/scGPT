@@ -57,16 +57,15 @@ if device == 'cuda':
 
 
 ######## load scGPT pre-trained model
-
-# use pretrained model - all HUMAN or BRAIN or BLOOD
 # Param prefixes are prefixes of ther layers names
-foundational_model_path = get_root_folder() / "save/scGPT_human"
 load_param_prefixs = [
     "encoder",
     "value_encoder",
     "transformer_encoder",
 ]
 
+# use pretrained model - all HUMAN or BRAIN or BLOOD
+foundational_model_path = get_root_folder() / "save/scGPT_human"
 model_config_file = foundational_model_path / "args.json"
 found_model_file = foundational_model_path / "best_model.pt"
 found_vocab_file = foundational_model_path / "vocab.json"

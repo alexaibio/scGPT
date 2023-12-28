@@ -351,6 +351,7 @@ class TransformerGenerator(nn.Module):
         device = next(self.parameters()).device
         batch_data.to(device)
         batch_size = len(batch_data.pert)
+
         x: torch.Tensor = batch_data.x
         ori_gene_values = x[:, 0].view(batch_size, -1)  # (batch_size, n_genes)
         pert_flags = x[:, 1].long().view(batch_size, -1)
@@ -372,6 +373,7 @@ class TransformerGenerator(nn.Module):
             src_key_padding_mask = torch.zeros_like(
                 input_values, dtype=torch.bool, device=device
             )
+
             with torch.cuda.amp.autocast(enabled=amp):
                 output_dict = self(
                     mapped_input_gene_ids,

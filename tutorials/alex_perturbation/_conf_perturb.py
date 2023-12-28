@@ -33,7 +33,7 @@ INPT_PAR = {
 
 # settings for optimizer
 TRN_PAR = {
-    'lr': 6e-5,             # or 1e-4
+    'lr': 2e-5,             # or 1e-4
     'batch_size': 30,       # was 64
     'eval_batch_size': 30,   # was 64
     'epochs': 10,
