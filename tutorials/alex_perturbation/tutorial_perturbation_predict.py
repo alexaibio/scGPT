@@ -50,7 +50,7 @@ model = TransformerGenerator(
     use_fast_transformer=use_fast_transformer,
 )
 
-############### load fine tuned model - not fundamental!
+############### load finetuned model - not fundamental!
 run_name = "fine_tune_perturb-Dec11-20-03"
 best_model = "model_epoch_10_val_loss_0.1331.pt"
 
@@ -66,12 +66,13 @@ model.load_state_dict(model_dict)
 model.to(device)
 
 
-# test prediction of expression after perturbation
-logger.info(f'------->  Predict a perturbation for :  {[["FEV"], ["FEV", "SAMD11"]]}')
+###### test prediction of expression after perturbation
+pert_list = [["FEV"], ["FEV", "SAMD11"]]
+logger.info(f'------->  Predict a perturbation for :  {pert_list}')
 results_pred = predict(
     model=model,
     vocab_foundational=vocab_foundational,
-    pert_list=[["FEV"], ["FEV", "SAMD11"]],
+    pert_list=pert_list,
     pool_size=700   # remove to see all
 )
 # dict of FEB: ndarray[5060,], / FEV_SAMD11: (5060,)
@@ -85,7 +86,7 @@ for pert in perts_to_plot:
         model=model,
         vocab_foundational=vocab_foundational,
         query=pert,
-        pool_size=700,
+        pool_size=700,  # number of single sell to calculate / show
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
 
