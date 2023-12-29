@@ -19,7 +19,7 @@ from _conf_perturb import (
     TRN_PAR, INPT_PAR,
     get_foundation_model_parameters,
     log_interval,
-    data_name, split
+    perturbation_data_source, split
 )
 from gears import PertData
 from _utils import get_perturb_folder, get_root_folder
@@ -85,7 +85,7 @@ embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = ge
 # pert_data.adata = 68603(observations) x 5060 (genes)
 # why perturbations are like CREB1+ctrl - is it control should be separated?
 # data_name = "adamson", split="simulation"
-pert_data: PertData = _load_perturbation_dataset(data_name, split)
+pert_data: PertData = _load_perturbation_dataset(perturbation_data_source, split)
 
 # in foundational model set token to <pad> if it is not in perturbation gene tokens
 gene_ids: np.ndarray

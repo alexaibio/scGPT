@@ -1,28 +1,27 @@
-import logging
-
 import numpy as np
 import torch
 from torch import nn
 from typing import List, Dict, Optional
 from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
+import scgpt as scg
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model
 from _conf_perturb import (
-    TRN_PAR, INPT_PAR,
-    data_name, split
+    TRN_PAR, INPT_PAR
 )
 from gears import PertData
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+logger = scg.logger
 sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5)
 
 
 def predict(
     model: TransformerGenerator,
-    vocab_foundational: GeneVocab,
+    gene_ids,
     pert_list: List[str],
     pool_size: Optional[int] = None
 ) -> Dict:
@@ -37,10 +36,6 @@ def predict(
             the stats of these predictions. If `None`, use all control cells.
     """
 
-    pert_data = _load_perturbation_dataset(data_name, split)
-    gene_ids: np.ndarray
-    n_genes_pert: int
-    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
 
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
@@ -62,7 +57,7 @@ def predict(
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:
-            print(f'... running prediction for genes {pert}')
+            logger.info(f'... running prediction for genes {pert}')
             # GEARs (Gene Expression Analysis with Recurrent neural networkS)
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert_gene=pert,
@@ -98,7 +93,7 @@ def plot_perturbation(
         pool_size: int = None,
 ) -> None:
 
-    pert_data: PertData = _load_perturbation_dataset(data_name, split)
+    pert_data: PertData = _load_perturbation_dataset(perturbation_data_source, split)
     gene_ids: np.ndarray
     n_genes_pert: int
     gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
@@ -121,7 +116,7 @@ def plot_perturbation(
 
     # do PREDICTION
     if query.split("+")[1] == "ctrl":
-        logging.info('... Control is present')
+        logger.info('... Control is present')
         pred = predict(
             model=model,
             vocab_foundational=vocab_foundational,
@@ -130,7 +125,7 @@ def plot_perturbation(
         )
         pred = pred[query.split("+")[0]][de_idx]
     else:
-        logging.info('... No control')
+        logger.info('... No control')
         pred = predict(
             model=model,
             vocab_foundational=vocab_foundational,

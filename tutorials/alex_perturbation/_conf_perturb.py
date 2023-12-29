@@ -36,7 +36,7 @@ TRN_PAR = {
     'lr': 2e-5,             # or 1e-4
     'batch_size': 30,       # was 64
     'eval_batch_size': 30,   # was 64
-    'epochs': 10,
+    'epochs': 12,
     'schedule_interval': 1,
     'early_stop': 5
 }
@@ -77,11 +77,11 @@ def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
 log_interval = 250
 
 
-data_name = "adamson"
+perturbation_data_source = "adamson"
 split = "simulation"
-if data_name == "norman":
+if perturbation_data_source == "norman":
     perts_to_plot = ["SAMD1+ZBTB1"]
-elif data_name == "adamson":
+elif perturbation_data_source == "adamson":
     perts_to_plot = ["KCTD16+ctrl"]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
