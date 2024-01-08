@@ -37,7 +37,7 @@ embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = ge
     model_config_file
 )
 
-# load what????
+# load Adamson perturbation dataset
 pert_data = _load_perturbation_dataset(perturbation_data_source, split)
 gene_ids: np.ndarray
 n_genes_pert: int
@@ -62,7 +62,7 @@ model = TransformerGenerator(
     use_fast_transformer=use_fast_transformer
 )
 
-############### load finetuned model - not fundamental!
+############### load fine-tuned perturbation model - not fundamental one this time!
 run_name = "fine_tune_perturb-Dec11-20-03"
 best_model = "model_epoch_10_val_loss_0.1331.pt"
 
@@ -81,12 +81,20 @@ model.to(device)
 ###### test prediction of expression after perturbation
 perturbed_genes_list = [["FEV"], ["FEV", "SAMD11"]]
 logger.info(f'------->  Predict a perturbation for :  {perturbed_genes_list}')
+
+adata = pert_data.adata
+ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
+pool_size_full = len(ctrl_adata)
+
 predicted_expression_dict = predict(
     model=model,
     gene_ids=gene_ids,
+    ctrl_adata=ctrl_adata,
     pert_list=perturbed_genes_list,
-    pool_size=700   # remove to see all
+    pool_size=1000,  # or pool_size_full:  For each perturbation, use this number of cells and predict their perturbation
+    gene_list=pert_data.gene_names.values.tolist()
 )
+
 # dict of FEB: ndarray[5060,], / FEV_SAMD11: (5060,)
 
 
@@ -98,7 +106,9 @@ for pert in perts_to_plot:
         model=model,
         vocab_foundational=vocab_foundational,
         query=pert,
-        pool_size=700,  # number of single sell to calculate / show
+        pert_data=pert_data,
+        gene_ids=gene_ids,
+        pool_size=1000,  # or pool_size_full: number of single sell to predict / show
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
 

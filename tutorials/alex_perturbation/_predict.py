@@ -1,13 +1,12 @@
 import numpy as np
 import torch
 from torch import nn
-from typing import List, Dict, Optional
+from typing import List, Dict, Any
 from torch_geometric.loader import DataLoader
 from gears.utils import create_cell_graph_dataset_for_prediction
 import scgpt as scg
 from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model
 from _conf_perturb import (
     TRN_PAR, INPT_PAR
 )
@@ -22,8 +21,10 @@ sns.set_theme(style="ticks", rc={"axes.facecolor": (0, 0, 0, 0)}, font_scale=1.5
 def predict(
     model: TransformerGenerator,
     gene_ids,
-    pert_list: List[str],
-    pool_size: Optional[int] = None
+    ctrl_adata,
+    pert_list: List[Any],
+    pool_size: int,
+    gene_list: list
 ) -> Dict:
     """
     Predict the gene expression values for the given perturbations.
@@ -35,16 +36,6 @@ def predict(
             of cells in the control and predict their perturbation results. Report
             the stats of these predictions. If `None`, use all control cells.
     """
-
-
-    adata = pert_data.adata
-    ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
-
-    # For each perturbation, use this number of cells in the control and predict their perturbation results.
-    if pool_size is None:
-        pool_size = len(ctrl_adata.obs)
-
-    gene_list = pert_data.gene_names.values.tolist()
 
     # check if genes to be perturbed are in model's gene list
     if any(i not in gene_list for pert in pert_list for i in pert):
@@ -59,9 +50,10 @@ def predict(
         for pert in pert_list:
             logger.info(f'... running prediction for genes {pert}')
             # GEARs (Gene Expression Analysis with Recurrent neural networkS)
+            # TODO: WHAT IT does? understand GEARS
             cell_graphs = create_cell_graph_dataset_for_prediction(
-                pert_gene=pert,
-                ctrl_adata=ctrl_adata,
+                pert_gene=pert,         # gene to perturb
+                ctrl_adata=ctrl_adata,  # control - why?
                 gene_names=gene_list,
                 device=device,
                 num_samples=pool_size
@@ -89,16 +81,14 @@ def plot_perturbation(
         model: nn.Module,
         vocab_foundational: GeneVocab,
         query: str,
+        pert_data: PertData,
+        gene_ids,
         save_plot_file: str = None,
         pool_size: int = None,
 ) -> None:
 
-    pert_data: PertData = _load_perturbation_dataset(perturbation_data_source, split)
-    gene_ids: np.ndarray
-    n_genes_pert: int
-    gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
-
     adata = pert_data.adata
+    ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
     gene2idx = pert_data.node_map
     cond2name = dict(adata.obs[["condition", "condition_name"]].values)
     gene_raw2id = dict(zip(adata.var.index.values, adata.var.gene_name.values))
@@ -119,18 +109,22 @@ def plot_perturbation(
         logger.info('... Control is present')
         pred = predict(
             model=model,
-            vocab_foundational=vocab_foundational,
+            gene_ids=gene_ids,
+            ctrl_adata=ctrl_adata,
             pert_list=[[query.split("+")[0]]],
-            pool_size=pool_size
+            pool_size=pool_size,
+            gene_list=pert_data.gene_names.values.tolist()
         )
         pred = pred[query.split("+")[0]][de_idx]
     else:
         logger.info('... No control')
         pred = predict(
             model=model,
-            vocab_foundational=vocab_foundational,
+            gene_ids=gene_ids,
+            ctrl_adata=ctrl_adata,
             pert_list=[query.split("+")],
-            pool_size=pool_size
+            pool_size=pool_size,
+            gene_list=pert_data.gene_names.values.tolist()
         )
         pred = pred["_".join(query.split("+"))][de_idx]
 
