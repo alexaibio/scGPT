@@ -78,7 +78,7 @@ class TransformerGenerator(nn.Module):
 
         self.use_fast_transformer = use_fast_transformer
 
-        # STEP: encode input vectors
+        # EMBED input vectors
         self.encoder = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])   # embed gene token vector
         self.value_encoder = ContinuousValueEncoder(d_model, dropout)               # embed expression vector
         self.pert_encoder = nn.Embedding(num_embeddings=3, embedding_dim=d_model, padding_idx=pert_pad_id)  # embed condition vector
@@ -86,7 +86,7 @@ class TransformerGenerator(nn.Module):
         print("-->Using simple batchnorm instead of domain specific batchnorm")
         self.bn = nn.BatchNorm1d(d_model, eps=6.1e-5)
 
-        # STEP: ENCODER: d_model=512, nhead=8, d_hid = ?
+        # BUILD standard ENCODER (self.transformer_encoder): d_model=512, nhead=8, d_hid = ?
         if use_fast_transformer:
             # create a multi-layer transformer encoder with 12 layers and  8 heads by either
             # FastTransformers library or FlashAttention library
@@ -111,7 +111,7 @@ class TransformerGenerator(nn.Module):
             )
             self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
-        # STEP: DECODERs
+        # build several DECODERs
         # self.decoder = nn.Linear(d_model, 1)
         self.decoder = ExprDecoder(
             d_model,
@@ -231,7 +231,7 @@ class TransformerGenerator(nn.Module):
             do_sample = True
             logger.warning("Auto set do_sample to True when model is in eval mode.")
 
-        # STEP 1: ENCODE -> Embedding and 12 blocks inside
+        # STEP 1: ENCODE -> Embed input vectors and ENCODE (12 blocks inside)
         transformer_output = self._encode(
             src, values, input_pert_flags, src_key_padding_mask
         )

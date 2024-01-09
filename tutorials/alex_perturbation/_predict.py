@@ -22,9 +22,9 @@ def predict(
     model: TransformerGenerator,
     gene_ids,
     ctrl_adata,
-    pert_list: List[Any],
+    pert_list: List[Any],   # genes to perturb
     pool_size: int,
-    gene_list: list
+    gene_list: list         # all genes in perturbation study
 ) -> Dict:
     """
     Predict the gene expression values for the given perturbations.
@@ -50,13 +50,14 @@ def predict(
         for pert in pert_list:
             logger.info(f'... running prediction for genes {pert}')
             # GEARs (Gene Expression Analysis with Recurrent neural networkS)
-            # TODO: WHAT IT does? understand GEARS
+            # Create a perturbation specific cell graph dataset for inference - why?
+            # TODO: why do we need cell graph?
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert_gene=pert,         # gene to perturb
-                ctrl_adata=ctrl_adata,  # control - why?
+                ctrl_adata=ctrl_adata,  # control anndata - why?
                 gene_names=gene_list,
                 device=device,
-                num_samples=pool_size
+                num_samples=pool_size   # number of samples to use for inference
             )
 
             loader = DataLoader(dataset=cell_graphs, batch_size=TRN_PAR['eval_batch_size'], shuffle=False)
