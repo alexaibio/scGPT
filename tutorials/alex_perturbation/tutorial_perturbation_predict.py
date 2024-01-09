@@ -37,10 +37,14 @@ embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer = ge
     model_config_file
 )
 
-# load Adamson perturbation dataset
+# load Adamson perturbation dataset: adata, dataloader, gene_names
+# adata 68603 obs x 5060 genes:
+#  X,
+#  obs=condition (ctrl, CREB1+ctrl, etc), cell_type, control (0/1),
+#  condition_name, dose_val
 pert_data = _load_perturbation_dataset(perturbation_data_source, split)
-gene_ids: np.ndarray
-n_genes_pert: int
+gene_ids: np.ndarray    # all gene names which are in pert dataset
+n_genes_pert: int       # num of such genes
 gene_ids, n_genes_pert, pert_data = _harmonize_pert_dataset_with_foundational_model(pert_data, vocab_foundational)
 
 model = TransformerGenerator(
@@ -88,11 +92,11 @@ pool_size_full = len(ctrl_adata)
 
 predicted_expression_dict = predict(
     model=model,
-    gene_ids=gene_ids,
-    ctrl_adata=ctrl_adata,
+    gene_ids=gene_ids,      # all gene names which are in pert dataset
+    ctrl_adata=ctrl_adata,  # subset of adata, only controls (why?)
     pert_list=perturbed_genes_list,
-    pool_size=1000,  # or pool_size_full:  For each perturbation, use this number of cells and predict their perturbation
-    gene_list=pert_data.gene_names.values.tolist()
+    pool_size=500,  # or pool_size_full:  For each perturbation, use this number of cells and predict their perturbation
+    gene_list=pert_data.gene_names.values.tolist()  # here are gene names of gene_ids
 )
 
 # dict of FEB: ndarray[5060,], / FEV_SAMD11: (5060,)

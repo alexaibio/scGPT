@@ -24,7 +24,7 @@ def predict(
     ctrl_adata,
     pert_list: List[Any],   # genes to perturb
     pool_size: int,
-    gene_list: list         # all genes in perturbation study
+    gene_list: list         # all gene names
 ) -> Dict:
     """
     Predict the gene expression values for the given perturbations.
