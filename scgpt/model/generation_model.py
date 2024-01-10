@@ -231,7 +231,7 @@ class TransformerGenerator(nn.Module):
             do_sample = True
             logger.warning("Auto set do_sample to True when model is in eval mode.")
 
-        # STEP 1: ENCODE -> Embed input vectors and ENCODE (12 blocks inside)
+        # STEP 1: ENCODE -> Embed input vectors and ENCODE (12 blocks inside); perturbations comes as conditional token
         transformer_output = self._encode(
             src, values, input_pert_flags, src_key_padding_mask
         )
@@ -355,6 +355,7 @@ class TransformerGenerator(nn.Module):
         x: torch.Tensor = batch_data.x
         ori_gene_values = x[:, 0].view(batch_size, -1)  # (batch_size, n_genes)
         pert_flags = x[:, 1].long().view(batch_size, -1)
+        # ori_gene_values[30, 5060]
 
         if include_zero_gene in ["all", "batch-wise"]:
             assert gene_ids is not None
@@ -370,6 +371,7 @@ class TransformerGenerator(nn.Module):
             mapped_input_gene_ids = map_raw_id_to_vocab_id(input_gene_ids, gene_ids)
             mapped_input_gene_ids = mapped_input_gene_ids.repeat(batch_size, 1)
 
+            # True indicates that the position in the sequence is a padded position, and False indicates that it contains actual data.
             src_key_padding_mask = torch.zeros_like(
                 input_values, dtype=torch.bool, device=device
             )

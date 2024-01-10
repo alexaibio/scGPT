@@ -49,9 +49,11 @@ def predict(
         results_pred = {}
         for pert in pert_list:
             logger.info(f'... running prediction for genes {pert}')
-            # GEARs (Gene Expression Analysis with Recurrent neural networkS)
-            # Create a perturbation specific cell graph dataset for inference - why?
-            # TODO: why do we need cell graph?
+            # Create a perturbation specific cell graph dataset for inference (GEARS package)
+            # cell_graph: list of pool_size graphs (Data(x=[5060,2], pert=[1])
+            #   x - Node feature matrix with shape [num_nodes, num_node_features] from geometric
+            #       features  - expression and perturbation mask 0/1
+            #   pert - list of perturbed genes
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert_gene=pert,         # gene to perturb
                 ctrl_adata=ctrl_adata,  # control anndata - why?
@@ -94,6 +96,7 @@ def plot_perturbation(
     cond2name = dict(adata.obs[["condition", "condition_name"]].values)
     gene_raw2id = dict(zip(adata.var.index.values, adata.var.gene_name.values))
 
+    # DE - differential expression??? get top diff expressed genes ?
     de_idx = [
         gene2idx[gene_raw2id[i]]
         for i in adata.uns["top_non_dropout_de_20"][cond2name[query]]
@@ -133,6 +136,7 @@ def plot_perturbation(
     pred = pred - ctrl_means
     truth = truth - ctrl_means
 
+    ### Plotting
     plt.figure(figsize=[16.5, 4.5])
     plt.title(query)
     plt.boxplot(truth, showfliers=False, medianprops=dict(linewidth=0))

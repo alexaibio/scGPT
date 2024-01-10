@@ -99,7 +99,7 @@ predicted_expression_dict = predict(
     gene_list=pert_data.gene_names.values.tolist()  # here are gene names of gene_ids
 )
 
-# dict of FEB: ndarray[5060,], / FEV_SAMD11: (5060,)
+
 
 
 ############################ plot
@@ -112,7 +112,7 @@ for pert in perts_to_plot:
         query=pert,
         pert_data=pert_data,
         gene_ids=gene_ids,
-        pool_size=1000,  # or pool_size_full: number of single sell to predict / show
+        pool_size=500,  # or pool_size_full: number of single sell to predict / show
         save_plot_file=f"{run_save_dir}/{pert}.png"
     )
 
