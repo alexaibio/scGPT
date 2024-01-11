@@ -106,6 +106,7 @@ predicted_expression_dict = predict(
 logger.info(f' -----> Plot a perturbation for :  {perts_to_plot}')
 # change list of per gene here
 # perts_to_plot = ["KCTD16+ctrl"]
+# perts_to_plot = ["HSPA5+ctrl", "CREB1+ctrl", "OST4+ctrl", "DARS+ctrl", "FARSB+ctrl"]
 
 for pert in perts_to_plot:
     plot_perturbation(
