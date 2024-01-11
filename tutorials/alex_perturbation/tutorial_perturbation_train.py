@@ -172,7 +172,7 @@ model.to(device)
 print(model)
 
 
-################### FINETUNING: train and validate def here
+################### FINE TUNING: train and validate def here
 
 optimizer = torch.optim.Adam(model.parameters(), lr=TRN_PAR['lr'])
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, TRN_PAR['schedule_interval'], gamma=0.9)

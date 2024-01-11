@@ -14,7 +14,7 @@ from tutorials.alex_perturbation._conf_perturb import (
     perts_to_plot
 )
 from _conf_perturb import (
-    TRN_PAR, INPT_PAR, perturbation_data_source, split
+    INPT_PAR, perturbation_data_source, split
 )
 from tutorials.alex_perturbation._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
@@ -104,6 +104,8 @@ predicted_expression_dict = predict(
 
 ############################ plot
 logger.info(f' -----> Plot a perturbation for :  {perts_to_plot}')
+# change list of per gene here
+# perts_to_plot = ["KCTD16+ctrl"]
 
 for pert in perts_to_plot:
     plot_perturbation(

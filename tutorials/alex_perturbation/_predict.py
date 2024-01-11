@@ -79,11 +79,10 @@ def predict(
     return results_pred
 
 
-
 def plot_perturbation(
         model: nn.Module,
         vocab_foundational: GeneVocab,
-        query: str,
+        query: str, # perturbed gene
         pert_data: PertData,
         gene_ids,
         save_plot_file: str = None,
@@ -96,7 +95,9 @@ def plot_perturbation(
     cond2name = dict(adata.obs[["condition", "condition_name"]].values)
     gene_raw2id = dict(zip(adata.var.index.values, adata.var.gene_name.values))
 
-    # DE - differential expression??? get top diff expressed genes ?
+    # DE_20 top 20 most differentially expressed genes
+    # https://static-content.springer.com/esm/art%3A10.1038%2Fs41587-023-01905-6/MediaObjects/41587_2023_1905_MOESM1_ESM.pdf
+    # 'drop-out' phenomenon: a gene is observed at moderate or even high expression level in one cell but is not detected in another cell
     de_idx = [
         gene2idx[gene_raw2id[i]]
         for i in adata.uns["top_non_dropout_de_20"][cond2name[query]]
@@ -106,6 +107,7 @@ def plot_perturbation(
         gene_raw2id[i] for i in adata.uns["top_non_dropout_de_20"][cond2name[query]]
     ]
 
+    # true expression of top 20 genes after QUERY perturbation
     truth = adata[adata.obs.condition == query].X.toarray()[:, de_idx]
 
     # do PREDICTION
@@ -115,7 +117,7 @@ def plot_perturbation(
             model=model,
             gene_ids=gene_ids,
             ctrl_adata=ctrl_adata,
-            pert_list=[[query.split("+")[0]]],
+            pert_list=[[query.split("+")[0]]],  # TODO: what it returns?
             pool_size=pool_size,
             gene_list=pert_data.gene_names.values.tolist()
         )

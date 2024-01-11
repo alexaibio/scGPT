@@ -8,6 +8,7 @@ logger = scg.logger
 
 
 ###### 1 -  Training Settings
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # settings for data processing
 INPT_PAR = {
@@ -73,10 +74,11 @@ def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
     return embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer
 
 
-# logging
+# fine tuning logging interval
 log_interval = 250
 
 
+# set a perturbation fine-tuning dataset and default gene to plot test perturbation
 perturbation_data_source = "adamson"
 split = "simulation"
 if perturbation_data_source == "norman":
@@ -84,4 +86,3 @@ if perturbation_data_source == "norman":
 elif perturbation_data_source == "adamson":
     perts_to_plot = ["KCTD16+ctrl"]
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
