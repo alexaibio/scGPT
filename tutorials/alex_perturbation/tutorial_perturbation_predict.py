@@ -20,6 +20,7 @@ from tutorials.alex_perturbation._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from _utils import get_perturb_folder, get_root_folder
 logger = scg.logger
+logger.info(f' device = {device}')
 
 
 # load vocabulary, model parameters and model itself
