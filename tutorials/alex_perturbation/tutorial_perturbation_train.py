@@ -22,42 +22,39 @@ from _conf_perturb import (
     perturbation_data_source, split
 )
 from gears import PertData
-from _utils import get_perturb_folder, get_root_folder
-
+from _utils import get_perturb_data_folder, get_root_folder
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
 set_seed(42)
-
 logger = scg.logger
-#scg.utils.add_file_handler(logger, save_dir / "run.log")
-
-print(get_perturb_folder())
-
-# create folder for today's fine-tuning
-run_name = f"fine_tune_perturb-{time.strftime('%b%d-%H-%M')}"
-INPT_PAR['run_name'] = run_name
-run_save_dir = get_perturb_folder() / "save" / run_name
-run_save_dir.mkdir(parents=True, exist_ok=True)
-print(f"saving to {run_save_dir}")
-
-
 if device == 'cuda':
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
     torch.cuda.empty_cache()
 
 
-############################################################
-# TODO:
-# add if to use flash-attention
-# what if fast transformer?
-# GEARS: https://github.com/snap-stanford/GEARS/tree/master
-# gears paper: https://www.nature.com/articles/s41587-023-01905-6
+########## Set parameters and folders paths: need to set up:
+# _utils.get_perturb_folder, get_root_folder
+# tutorials.alex_perturbation._conf_perturb import device
+#
+
+print(f'Perturbation data is in folder {get_perturb_data_folder()}')
+
+# create folder for today's fine-tuning
+run_name = f"fine_tune_perturb-{time.strftime('%b%d-%H-%M')}"
+INPT_PAR['run_name'] = run_name
+run_save_dir = get_perturb_data_folder() / "save" / run_name
+run_save_dir.mkdir(parents=True, exist_ok=True)
+print(f"saving to {run_save_dir}")
+
+
+
+
 
 
 
 ######## load scGPT pre-trained model
-# Param prefixes are prefixes of ther layers names
+# Naming: Param prefixes are prefixes of their layers names
 load_param_prefixs = [
     "encoder",
     "value_encoder",

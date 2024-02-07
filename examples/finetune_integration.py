@@ -555,7 +555,8 @@ def define_wandb_metrcis():
     wandb.define_metric("test/avg_bio", summary="max")
 
 
-def evaluate(model: nn.Module, loader: DataLoader) -> float:
+def \
+        evaluate(model: nn.Module, loader: DataLoader) -> float:
     """
     Evaluate the model on the evaluation data.
     """

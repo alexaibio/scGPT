@@ -22,9 +22,16 @@ def _compare_model_and_checkpoint(model, checkpoint):
             print(f"{key2}  \  {key1}")  # model keys first
 
 
-def get_perturb_folder() -> Path:
+def get_root_folder() -> Path:
+    return Path(__file__).parent.parent.parent
+
+
+def get_perturb_data_folder() -> Path:
     return Path(__file__).parent
 
 
-def get_root_folder() -> Path:
-    return Path(__file__).parent.parent.parent
+def get_annot_data_folder() -> Path:
+    return Path(__file__).parent
+
+
+

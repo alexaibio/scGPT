@@ -1,5 +1,4 @@
 import sys
-sys.path.insert(0, "../../")
 import scgpt as scg
 import torch
 import json
@@ -8,29 +7,77 @@ from pathlib import Path
 logger = scg.logger
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Hyperparameters to be used by wandb
+hyperparameter_defaults = dict(
+    seed=0,
+    dataset_name="ms",
+    do_train=True,
+    load_model="../save/scGPT_human",
+    mask_ratio=0.0,
+    epochs=10,
+    n_bins=51,
+    MVC=False, # Masked value prediction for cell embedding
+    ecs_thres=0.0, # Elastic cell similarity objective, 0.0 to 1.0, 0.0 to disable
+    dab_weight=0.0,
+    lr=1e-4,
+    batch_size=32,
+    layer_size=128,
+    nlayers=4,  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead=4,  # number of heads in nn.MultiheadAttention
+    dropout=0.2,  # dropout probability
+    schedule_ratio=0.9,  # ratio of epochs for learning rate schedule
+    save_eval_interval=5,
+    fast_transformer=True,
+    pre_norm=False,
+    amp=True,  # Automatic Mixed Precision
+    # To speed up the training, we restrict the input to only genes with non-zero expression for each input cell
+    include_zero_gene = False,  # was all; include zero expr genes in training input, "all", "batch-wise", "row-wise",False
+    freeze = False, #freeze
+    DSBN = False,  # Domain-spec batchnorm
+)
 
-###### 1 -  Training Settingы
+# fine tuning logging interval
+log_interval = 250
+
+
+
+
+
+###### 1 -  Training Settings
 
 # settings for data processing
-INPT_PAR = {
-    'pad_token': "<pad>",
-    'special_tokens': ["<pad>", "<cls>", "<eoc>"],  # <cls> - for aggregating all genes into a cell representation ??
+INPT_PAR = dict(
+    pad_token="<pad>",
+    special_tokens=["<pad>", "<cls>", "<eoc>"],  # <cls> - for aggregating all genes into a cell representation ??
+    mask_ratio = hyperparameter_defaults.mask_ratio,     # what is that?
+    mask_value = "auto",  # for masked values, now it should always be auto
+    include_zero_gene = hyperparameter_defaults.include_zero_gene,  # # include zero expr genes in training input, "all", "batch-wise", "row-wise",False
+    max_seq_len = 3001,  # was 1536 for perturbation
+    n_bins = hyperparameter_defaults.n_bins,
+    # input/output representation
+    input_style = "binned",  # "normed_raw", "log1p", or "binned"
+    output_style = "binned",  # "normed_raw", "log1p", or "binned"
+
+    # settings for training
+    MLM = False,  # whether to use masked language modeling, currently it is always on.
+    CLS = True,         # celltype classification objective
+    ADV = False,  # Adversarial training for batch correction
+    CCE = False,  # Contrastive cell embedding objective
+    MVC = hyperparameter_defaults.MVC,  # Masked value prediction for cell embedding
+    ECS = hyperparameter_defaults.ecs_thres > 0,  # Elastic cell similarity objective
+    DAB = False,  # Domain adaptation by reverse backpropagation, set to 2 for separate optimizer
+
+
     'pad_value': 0,             # for padding values
     'pert_pad_id': 2,
     'n_hvg': 0,                 # number of highly variable genes
-    # To speed up the training, we restrict the input to only genes with non-zero expression for each input cell
-    'include_zero_gene': "all",  # include zero expr genes in training input, "all", "batch-wise", "row-wise",False
-    'max_seq_len': 1536,  # what is that?
-    # settings for training
-    'MLM': True,        # whether to use Masked Language Modeling, currently it is always on.
-    'CLS': False,       # celltype classification objective
-    'CCE': False,       # Contrastive cell embedding objective
-    'MVC': False,       # Masked value prediction for cell embedding
-    'ECS': False,       # Elastic cell similarity objective
+
+
+
     'cell_emb_style': "cls",
     'mvc_decoder_style': "inner product, detach",
     'amp': True         # Automatic Mixed Precision (AMP): faster training times and reduced memory usage
-}
+)
 
 
 # settings for optimizer
@@ -43,8 +90,7 @@ TRN_PAR = {
     'early_stop': 5
 }
 
-# fine tuning logging interval
-log_interval = 250
+
 
 
 def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
@@ -75,6 +121,8 @@ def get_foundation_model_parameters(model_file: Path, model_config_file: Path):
     logger.info(f' after:    {embsize},       {nhead},      {d_hid},        {nlayers},     {n_layers_cls}')
 
     return embsize, nhead, d_hid, nlayers, n_layers_cls, dropout, use_fast_transformer
+
+
 
 
 

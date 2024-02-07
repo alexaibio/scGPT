@@ -18,7 +18,7 @@ from _conf_perturb import (
 )
 from tutorials.alex_perturbation._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from _utils import get_perturb_folder, get_root_folder
+from _utils import get_perturb_data_folder, get_root_folder
 logger = scg.logger
 logger.info(f' device = {device}')
 
@@ -72,7 +72,7 @@ run_name = "fine_tune_perturb-Dec11-20-03"
 best_model = "model_epoch_10_val_loss_0.1331.pt"
 
 INPT_PAR['run_name'] = run_name
-run_save_dir = get_perturb_folder() / "save" / run_name
+run_save_dir = get_perturb_data_folder() / "save" / run_name
 tuned_model_file = run_save_dir / best_model
 
 # update weights of the model
