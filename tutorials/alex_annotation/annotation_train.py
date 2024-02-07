@@ -72,6 +72,41 @@ save_dir.mkdir(parents=True, exist_ok=True)
 # LoaD ANNOTATION DATASET
 ann_ds = load_annot_dataset(dataset_name)
 
-# load foundational model
 
+# load foundational model
+model_dir = Path(Hyperparameters.load_model)
+model_config_file = model_dir / "args.json"
+model_file = model_dir / "best_model.pt"
+vocab_file = model_dir / "vocab.json"
+
+vocab = GeneVocab.from_file(vocab_file)
+shutil.copy(vocab_file, save_dir / "vocab.json")
+for s in special_tokens:
+    if s not in vocab:
+        vocab.append_token(s)
+
+
+
+adata.var["id_in_vocab"] = [
+    1 if gene in vocab else -1 for gene in adata.var["gene_name"]
+]
+gene_ids_in_vocab = np.array(adata.var["id_in_vocab"])
+logger.info(
+    f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
+    f"in vocabulary of size {len(vocab)}."
+)
+adata = adata[:, adata.var["id_in_vocab"] >= 0]
+
+# model
+with open(model_config_file, "r") as f:
+    model_configs = json.load(f)
+logger.info(
+    f"Resume model from {model_file}, the model args will override the "
+    f"config {model_config_file}."
+)
+embsize = model_configs["embsize"]
+nhead = model_configs["nheads"]
+d_hid = model_configs["d_hid"]
+nlayers = model_configs["nlayers"]
+n_layers_cls = model_configs["n_layers_cls"]
 
