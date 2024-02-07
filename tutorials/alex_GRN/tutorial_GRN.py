@@ -92,7 +92,7 @@ model = TransformerModel(
 
 checkpoint = torch.load(model_file, map_location=device)    # Load OrderedDict
 
-from tutorials.alex_perturbation._utils import _compare_model_and_checkpoint
+from tutorials._utils import _compare_model_and_checkpoint
 _compare_model_and_checkpoint(model, checkpoint)
 
 try:

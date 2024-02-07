@@ -31,7 +31,7 @@ def get_perturb_data_folder() -> Path:
 
 
 def get_annot_data_folder() -> Path:
-    return Path(__file__).parent
+    return Path(__file__).parent.parent / 'data' / 'annotation'
 
 
 

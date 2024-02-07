@@ -9,7 +9,6 @@ from tutorials.alex_perturbation._load_data import (
     _load_perturbation_dataset
 )
 from tutorials.alex_perturbation._conf_perturb import (
-    INPT_PAR,
     get_foundation_model_parameters,
     perts_to_plot
 )
@@ -18,7 +17,7 @@ from _conf_perturb import (
 )
 from tutorials.alex_perturbation._conf_perturb import device
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
-from _utils import get_perturb_data_folder, get_root_folder
+from tutorials._utils import get_perturb_data_folder, get_root_folder
 logger = scg.logger
 logger.info(f' device = {device}')
 

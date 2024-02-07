@@ -1,7 +1,5 @@
-import sys
 import time
 import copy
-from pathlib import Path
 import warnings
 import torch
 import numpy as np
@@ -22,7 +20,7 @@ from _conf_perturb import (
     perturbation_data_source, split
 )
 from gears import PertData
-from _utils import get_perturb_data_folder, get_root_folder
+from tutorials._utils import get_perturb_data_folder, get_root_folder
 
 matplotlib.rcParams["savefig.transparent"] = False
 warnings.filterwarnings("ignore")
