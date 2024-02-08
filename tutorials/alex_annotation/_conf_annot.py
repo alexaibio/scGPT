@@ -15,7 +15,7 @@ class Hyperparameters:
     seed: int = 0
     dataset_name: str = "ms"
     do_train: bool = True
-    load_model: str = "../save/scGPT_human"
+    load_model: str = "save/scGPT_human"
     mask_ratio: float = 0.0
     epochs: int = 10
     n_bins: int = 51

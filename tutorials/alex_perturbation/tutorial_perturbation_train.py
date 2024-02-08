@@ -11,7 +11,8 @@ from scgpt.loss import masked_mse_loss
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed
 from tutorials.alex_perturbation._train import train, evaluate
-from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
+from tutorials.alex_perturbation._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model
+from tutorials._utils import _load_foundational_vocabulary_add_spec_tokens
 from tutorials.alex_perturbation._conf_perturb import device
 from _conf_perturb import (
     TRN_PAR, INPT_PAR,
@@ -47,10 +48,6 @@ print(f"saving to {run_save_dir}")
 
 
 
-
-
-
-
 ######## load scGPT pre-trained model
 # Naming: Param prefixes are prefixes of their layers names
 load_param_prefixs = [
@@ -66,7 +63,7 @@ found_model_file = foundational_model_path / "best_model.pt"
 found_vocab_file = foundational_model_path / "vocab.json"
 
 # model vocabulary (gene id and names):  60697 -> A1BG
-vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file)
+vocab_foundational: GeneVocab = _load_foundational_vocabulary_add_spec_tokens(found_vocab_file, INPT_PAR['special_tokens'])
 
 # model config parameters...
 # embsize=512, nhead=8, d_hid=512, nlayers=12, n_layers_cls=3

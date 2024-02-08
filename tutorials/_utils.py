@@ -1,4 +1,5 @@
 from pathlib import Path
+from scgpt.tokenizer.gene_tokenizer import GeneVocab
 
 
 def _compare_model_and_checkpoint(model, checkpoint):
@@ -23,7 +24,7 @@ def _compare_model_and_checkpoint(model, checkpoint):
 
 
 def get_root_folder() -> Path:
-    return Path(__file__).parent.parent.parent
+    return Path(__file__).parent.parent
 
 
 def get_perturb_data_folder() -> Path:
@@ -34,4 +35,14 @@ def get_annot_data_folder() -> Path:
     return Path(__file__).parent.parent / 'data' / 'annotation'
 
 
+def _load_foundational_vocabulary_add_spec_tokens(vocab_file: Path, special_tokens: str) -> GeneVocab:
 
+    # load vocabulary from saved file.
+    vocab_foundational = GeneVocab.from_file(vocab_file)  # 60697, gene names: A1BG etc
+
+    # add special tokes if they are still not there
+    for s in special_tokens:
+        if s not in vocab_foundational:
+            vocab_foundational.append_token(s)
+
+    return vocab_foundational

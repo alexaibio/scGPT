@@ -1,9 +1,11 @@
+from typing import Tuple, List
 import numpy as np
 import scanpy as sc
+from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from tutorials._utils import get_annot_data_folder, get_root_folder
 
 
-def load_annot_dataset(dataset_name: str):
+def load_annot_dataset(dataset_name: str) -> Tuple[sc.AnnData, sc.AnnData]:
     if dataset_name == "ms":
         adata = sc.read(get_annot_data_folder() / "c_data.h5ad")    # 7844x gene3000
         adata_test = sc.read(get_annot_data_folder() / "filtered_ms_adata.h5ad")
@@ -33,3 +35,6 @@ def load_annot_dataset(dataset_name: str):
 
     return adata, adata_test
 
+
+def _harmonize_anndata_with_foundational_model(ann_data: sc.AnnData, vocab_foundational: GeneVocab) -> sc.AnnData:
+    pass

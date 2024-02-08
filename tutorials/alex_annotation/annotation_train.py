@@ -42,7 +42,9 @@ from scgpt import SubsetsBatchSampler
 from scgpt.utils import set_seed, category_str2int, eval_scib_metrics
 
 from _conf_annot import *
-from _load_data import load_annot_dataset
+from _load_data import load_annot_dataset, _harmonize_anndata_with_foundational_model
+from tutorials._utils import _load_foundational_vocabulary_add_spec_tokens, get_root_folder
+
 
 warnings.filterwarnings('ignore')
 logger = scg.logger
@@ -70,26 +72,32 @@ save_dir = Path(f"./save/dev_{dataset_name}-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 
 # LoaD ANNOTATION DATASET
-ann_ds = load_annot_dataset(dataset_name)
+adata, adata_test = load_annot_dataset(dataset_name)
 
 
-# load foundational model
-model_dir = Path(Hyperparameters.load_model)
+###### load foundational model
+foundational_model_path = get_root_folder() / "save/scGPT_human"
+model_config_file = foundational_model_path / "args.json"
+found_model_file = foundational_model_path / "best_model.pt"
+found_vocab_file = foundational_model_path / "vocab.json"
+
+# Paths to foundational model
+print(get_root_folder())
+print(Hyperparameters.load_model)
+model_dir = get_root_folder() / Hyperparameters.load_model
 model_config_file = model_dir / "args.json"
 model_file = model_dir / "best_model.pt"
 vocab_file = model_dir / "vocab.json"
 
-vocab = GeneVocab.from_file(vocab_file)
-shutil.copy(vocab_file, save_dir / "vocab.json")
-for s in special_tokens:
-    if s not in vocab:
-        vocab.append_token(s)
+# Load gene vocabulary and add special tokens. Vocabulary is gene-->token mapping, "RP5-973N23.5": 60693
+vocab = _load_foundational_vocabulary_add_spec_tokens(vocab_file, special_tokens)
 
 
+# TODO: remove from adata those genes which ar enot in founcdational model
+adata = _harmonize_anndata_with_foundational_model(adata, vocab)
 
-adata.var["id_in_vocab"] = [
-    1 if gene in vocab else -1 for gene in adata.var["gene_name"]
-]
+
+adata.var["id_in_vocab"] = [1 if gene in vocab else -1 for gene in adata.var["gene_name"]]
 gene_ids_in_vocab = np.array(adata.var["id_in_vocab"])
 logger.info(
     f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
@@ -97,7 +105,8 @@ logger.info(
 )
 adata = adata[:, adata.var["id_in_vocab"] >= 0]
 
-# model
+
+# Load foundational model
 with open(model_config_file, "r") as f:
     model_configs = json.load(f)
 logger.info(

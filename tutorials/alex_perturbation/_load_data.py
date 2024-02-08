@@ -51,16 +51,6 @@ def _harmonize_pert_dataset_with_foundational_model(pert_data: PertData, vocab_f
     return gene_ids, n_genes_pert, pert_data
 
 
-def _load_foundational_vocabulary_add_spec_tokens(vocab_file: Path) -> GeneVocab:
 
-    # load vocabulary from saved file.
-    vocab_foundational = GeneVocab.from_file(vocab_file)  # 60697, gene names: A1BG etc
-
-    # add special tokes if they are still not there
-    for s in INPT_PAR['special_tokens']:
-        if s not in vocab_foundational:
-            vocab_foundational.append_token(s)
-
-    return vocab_foundational
 
 
