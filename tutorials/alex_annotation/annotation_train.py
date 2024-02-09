@@ -137,7 +137,8 @@ preprocessor(adata, batch_key=None)
 preprocessor(adata_test, batch_key=None)
 
 
-### Train-test split in a perversive way
+# Get a neccesary count matrix from AnnData.layers, either normed or binned
+# input_style='binned'
 input_layer_key = {  # the values of this map coorespond to the keys in preprocessing
     "normed_raw": "X_normed",
     "log1p": "X_normed",
@@ -146,15 +147,16 @@ input_layer_key = {  # the values of this map coorespond to the keys in preproce
 
 all_counts = (
     adata.layers[input_layer_key].A
-    if issparse(adata.layers[input_layer_key])
+    if issparse(adata.layers[input_layer_key])  # input_layer_key=X_binned
     else adata.layers[input_layer_key]
 )
 
+# get genes and celltype
 genes = adata.var["gene_name"].tolist()
-
 celltypes_labels = adata.obs["celltype_id"].tolist()  # make sure count from 0
 celltypes_labels = np.array(celltypes_labels)
 
+# do a train-test split
 batch_ids = adata.obs["batch_id"].tolist()
 num_batch_types = len(set(batch_ids))
 batch_ids = np.array(batch_ids)
@@ -169,3 +171,12 @@ batch_ids = np.array(batch_ids)
 ) = train_test_split(
     all_counts, celltypes_labels, batch_ids, test_size=0.1, shuffle=True
 )
+
+#### TODO: LOAD model
+if config.load_model is None:
+    vocab = Vocab(
+        VocabPybind(genes + special_tokens, None)
+    )  # bidirectional lookup [gene <-> int]
+vocab.set_default_index(vocab["<pad>"])
+gene_ids = np.array(vocab(genes), dtype=int)
+
