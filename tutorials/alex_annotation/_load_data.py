@@ -1,8 +1,10 @@
 from typing import Tuple, List
 import numpy as np
 import scanpy as sc
+import scgpt as scg
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from tutorials._utils import get_annot_data_folder, get_root_folder
+logger = scg.logger
 
 
 def load_annot_dataset(dataset_name: str) -> Tuple[sc.AnnData, sc.AnnData]:
@@ -18,8 +20,7 @@ def load_annot_dataset(dataset_name: str) -> Tuple[sc.AnnData, sc.AnnData]:
 
         adata.var.set_index(adata.var["gene_name"], inplace=True)
         adata_test.var.set_index(adata.var["gene_name"], inplace=True)
-        data_is_raw = False
-        filter_gene_by_counts = False
+
         adata_test_raw = adata_test.copy()
         adata = adata.concatenate(adata_test, batch_key="str_batch")
 
@@ -36,5 +37,13 @@ def load_annot_dataset(dataset_name: str) -> Tuple[sc.AnnData, sc.AnnData]:
     return adata, adata_test
 
 
-def _harmonize_anndata_with_foundational_model(ann_data: sc.AnnData, vocab_foundational: GeneVocab) -> sc.AnnData:
-    pass
+def _harmonize_anndata_with_foundational_model(adata: sc.AnnData, vocab_foundational: GeneVocab) -> sc.AnnData:
+    adata.var["id_in_vocab"] = [1 if gene in vocab_foundational else -1 for gene in adata.var["gene_name"]]
+    gene_ids_in_vocab = np.array(adata.var["id_in_vocab"])
+    logger.info(
+        f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
+        f"in vocabulary of size {len(vocab_foundational)}."
+    )
+    adata = adata[:, adata.var["id_in_vocab"] >= 0]
+
+    return adata

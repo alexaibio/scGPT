@@ -71,8 +71,11 @@ dataset_name = Hyperparameters.dataset_name
 save_dir = Path(f"./save/dev_{dataset_name}-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 
-# LoaD ANNOTATION DATASET
+# LoaD ANNOTATION DATASET, set some variables
 adata, adata_test = load_annot_dataset(dataset_name)
+if dataset_name == "ms":
+    data_is_raw = False
+    filter_gene_by_counts = False
 
 
 ###### load foundational model
@@ -93,20 +96,11 @@ vocab_file = model_dir / "vocab.json"
 vocab = _load_foundational_vocabulary_add_spec_tokens(vocab_file, special_tokens)
 
 
-# TODO: remove from adata those genes which ar enot in founcdational model
+# remove from adata those genes which are not in foundational model
 adata = _harmonize_anndata_with_foundational_model(adata, vocab)
 
 
-adata.var["id_in_vocab"] = [1 if gene in vocab else -1 for gene in adata.var["gene_name"]]
-gene_ids_in_vocab = np.array(adata.var["id_in_vocab"])
-logger.info(
-    f"match {np.sum(gene_ids_in_vocab >= 0)}/{len(gene_ids_in_vocab)} genes "
-    f"in vocabulary of size {len(vocab)}."
-)
-adata = adata[:, adata.var["id_in_vocab"] >= 0]
-
-
-# Load foundational model
+# Load foundational model parameters from json config
 with open(model_config_file, "r") as f:
     model_configs = json.load(f)
 logger.info(
@@ -119,3 +113,59 @@ d_hid = model_configs["d_hid"]
 nlayers = model_configs["nlayers"]
 n_layers_cls = model_configs["n_layers_cls"]
 
+
+# PRE-PROCESS data
+# use the args to config the workflow: filter_gene_by_counts, data_is_raw,
+preprocessor = Preprocessor(
+    use_key="X",  # the key in adata.layers to use as raw data
+    filter_gene_by_counts=filter_gene_by_counts,    # step 1
+    filter_cell_by_counts=False,                    # step 2
+    normalize_total=1e4,                            # 3. whether to normalize the raw data and to what sum
+    result_normed_key="X_normed",  # the key in adata.layers to store the normalized data
+    log1p=data_is_raw,                              # 4. whether to log1p the normalized data
+    result_log1p_key="X_log1p",
+    subset_hvg=False,                               # 5. whether to subset the raw data to highly variable genes
+    hvg_flavor="seurat_v3" if data_is_raw else "cell_ranger",
+    binning=n_bins,                                 # 6. whether to bin the raw data and to what number of bins
+    result_binned_key="X_binned",  # the key in adata.layers to store the binned data
+)
+
+adata_test = adata[adata.obs["str_batch"] == "1"]
+adata = adata[adata.obs["str_batch"] == "0"]
+
+preprocessor(adata, batch_key=None)
+preprocessor(adata_test, batch_key=None)
+
+
+### Train-test split in a perversive way
+input_layer_key = {  # the values of this map coorespond to the keys in preprocessing
+    "normed_raw": "X_normed",
+    "log1p": "X_normed",
+    "binned": "X_binned",
+}[input_style]
+
+all_counts = (
+    adata.layers[input_layer_key].A
+    if issparse(adata.layers[input_layer_key])
+    else adata.layers[input_layer_key]
+)
+
+genes = adata.var["gene_name"].tolist()
+
+celltypes_labels = adata.obs["celltype_id"].tolist()  # make sure count from 0
+celltypes_labels = np.array(celltypes_labels)
+
+batch_ids = adata.obs["batch_id"].tolist()
+num_batch_types = len(set(batch_ids))
+batch_ids = np.array(batch_ids)
+
+(
+    train_data,
+    valid_data,
+    train_celltype_labels,
+    valid_celltype_labels,
+    train_batch_labels,
+    valid_batch_labels,
+) = train_test_split(
+    all_counts, celltypes_labels, batch_ids, test_size=0.1, shuffle=True
+)

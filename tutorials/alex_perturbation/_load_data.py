@@ -25,6 +25,7 @@ def _load_perturbation_dataset(data_name: str, split: str) -> PertData:
 
 
 def _harmonize_pert_dataset_with_foundational_model(pert_data: PertData, vocab_foundational: GeneVocab):
+    # TODO: redundancy with same function for annotation
     # add an "id_in_vocab" as 1 if it is in the gene list of pre-trained foundational model and -1 otherwise
     pert_data.adata.var["id_in_vocab"] = [
         1 if gene in vocab_foundational else -1 for gene in pert_data.adata.var["gene_name"]
@@ -39,6 +40,7 @@ def _harmonize_pert_dataset_with_foundational_model(pert_data: PertData, vocab_f
 
     genes_pert_dataset = pert_data.adata.var["gene_name"].tolist()
 
+    # TODO: move it outside this function
     # if gene in pert-dataset is not in foundational vocabulary, substitute it with <pad> token
     vocab_foundational.set_default_index(vocab_foundational["<pad>"])
     gene_ids = np.array(
