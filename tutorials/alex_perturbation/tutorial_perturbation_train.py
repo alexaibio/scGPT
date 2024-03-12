@@ -21,9 +21,9 @@ from scgpt.loss import (
 from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, map_raw_id_to_vocab_id
-from tutorials._train import train, evaluate
+from tutorials.alex_perturbation._train import train, evaluate
 from tutorials._load_data import _load_perturbation_dataset, _harmonize_pert_dataset_with_foundational_model, _load_foundational_vocabulary_add_spec_tokens
-from tutorials._conf_perturb import device
+from tutorials.alex_perturbation._conf_perturb import device
 from _conf_perturb import (
     OPT_SET, TRN_SET,
     get_foundation_model_parameters,
